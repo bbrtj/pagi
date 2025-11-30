@@ -9,7 +9,7 @@
       "Step 4: Verify Content-Type header is text/plain",
       "Step 5: Verify response body contains 'Hello from PAGI'"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -28,7 +28,7 @@
       "Step 11: Verify scope contains 'client' with [host, port]",
       "Step 12: Verify scope contains 'server' with [host, port]"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -39,7 +39,7 @@
       "Step 3: Verify response status is 500",
       "Step 4: Verify connection is closed cleanly after error response"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -477,7 +477,7 @@
       "Step 3: Verify Date header is present in response",
       "Step 4: Verify Date header format is RFC 7231 compliant"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

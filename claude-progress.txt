@@ -1,5 +1,96 @@
 # PAGI Reference Server - Development Progress
 
+## Session 2: Step 1 Implementation (2024-11-30)
+
+### Completed Tasks
+
+1. **Implemented PAGI::Server::Protocol::HTTP1**
+   - HTTP/1.1 request parsing using HTTP::Parser::XS
+   - URL decoding with URI::Escape
+   - Header normalization (lowercase names)
+   - Cookie header normalization (per spec)
+   - Response serialization with chunked encoding support
+   - RFC 7231 compliant Date header formatting
+
+2. **Implemented PAGI::Server::Connection**
+   - Per-connection state machine
+   - Request parsing from buffer
+   - Scope creation with all required keys per PAGI spec
+   - $receive coderef for receiving events (http.request, http.disconnect)
+   - $send coderef for sending events (http.response.start, http.response.body)
+   - Error handling with 500 response for app exceptions
+   - Proper async/await with Future::AsyncAwait
+
+3. **Implemented PAGI::Server**
+   - IO::Async::Notifier subclass
+   - TCP listener with IO::Async::Listener
+   - Connection handling and stream management
+   - listen(), shutdown(), port(), is_running() methods
+   - Quiet mode and access logging support
+
+4. **Fixed examples/01-hello-http/app.pl**
+   - Changed to return coderef when loaded via `do`
+
+5. **Created t/01-hello-http.t tests**
+   - Server starts/stops correctly
+   - Basic HTTP response (200 OK, Content-Type, body)
+   - HTTP scope contains all required keys
+   - App exceptions result in 500 response
+
+### Test Results
+
+All Step 1 tests pass:
+```
+prove -l t/01-hello-http.t
+t/01-hello-http.t .... ok
+All tests successful.
+```
+
+Full test suite:
+```
+prove -l t/
+All tests successful.
+Files=10, Tests=14
+```
+
+### Features Marked as Passing (4/75)
+
+1. Basic HTTP response - 01-hello-http app returns 200 OK
+2. HTTP scope contains all required keys per PAGI specification
+3. App exceptions result in 500 Internal Server Error response
+4. Date header is added to responses
+
+### Technical Details
+
+- Stream must have on_read configured before being added to loop
+- IO::Async::Listener's read_handle returns the listening socket
+- HTTP::Parser::XS returns bytes consumed (positive) on success, -1/-2 on error
+
+### Next Steps for Future Sessions
+
+1. **Step 2: Streaming Responses** (highest priority)
+   - Support multiple http.response.body events with more => 1
+   - Chunked Transfer-Encoding for streaming
+   - Trailers support (http.response.trailers)
+   - Client disconnect detection (http.disconnect event)
+
+2. Continue following the 12 implementation steps in app_spec.txt
+
+### Important Notes
+
+- NEVER remove or edit features in feature_list.json
+- Features can ONLY be marked as passing (false -> true)
+- Implementation follows strict iterative review process
+- This is a reference implementation - prioritize spec compliance
+
+### Environment Info
+
+- Working directory: /Users/jnapiorkowski/Desktop/PAGI
+- Perl version: 5.40.0 (via perlbrew)
+- Dependencies: As specified in cpanfile
+
+---
+
 ## Session 1: Initializer Agent (2024-11-30)
 
 ### Completed Tasks
@@ -53,7 +144,7 @@ bin/
 
 t/
   00-load.t                    # Module loading test (PASSING)
-  01-hello-http.t              # Step 1 tests (pending)
+  01-hello-http.t              # Step 1 tests (PASSING)
   02-streaming.t               # Step 2 tests (pending)
   03-request-body.t            # Step 3 tests (pending)
   04-websocket.t               # Step 4 tests (pending)
@@ -69,34 +160,3 @@ t/
 
 1. `f4b2ff8` - Initial setup: feature_list.json, init.sh, and project structure
 2. `e765d5e` - Add project structure with skeleton modules and tests
-
-### Test Status
-
-- `t/00-load.t`: PASSING (10 tests - all modules load)
-- Other tests: Pending implementation (skip_all)
-
-### Next Steps for Future Sessions
-
-1. **Step 1: Basic HTTP Server** (highest priority)
-   - Implement PAGI::Server with IO::Async::Listener
-   - Implement PAGI::Server::Connection request handling
-   - Implement PAGI::Server::Protocol::HTTP1 parsing/serialization
-   - Make examples/01-hello-http/app.pl work
-   - Enable t/01-hello-http.t tests
-
-2. Follow the 12 implementation steps in app_spec.txt
-3. Each step should result in a working server for that example
-4. Review and approve before proceeding to next step
-
-### Important Notes
-
-- NEVER remove or edit features in feature_list.json
-- Features can ONLY be marked as passing (false -> true)
-- Implementation follows strict iterative review process
-- This is a reference implementation - prioritize spec compliance over performance
-
-### Environment Info
-
-- Working directory: /Users/jnapiorkowski/Desktop/PAGI
-- Perl version: 5.40.0 (via perlbrew)
-- Dependencies: As specified in cpanfile
