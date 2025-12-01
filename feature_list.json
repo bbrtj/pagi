@@ -1351,7 +1351,7 @@
       "Step 3: Verify file content is returned",
       "Step 4: Verify correct MIME type"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1361,7 +1361,7 @@
       "Step 2: Request /../../../etc/passwd",
       "Step 3: Verify 403 or 404 response"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1372,7 +1372,7 @@
       "Step 3: Verify HTML listing is returned",
       "Step 4: Verify listing contains file links"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1382,7 +1382,7 @@
       "Step 2: Request directory containing index.html",
       "Step 3: Verify index.html content is returned"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1394,7 +1394,7 @@
       "Step 3: Verify $api_app handles request",
       "Step 4: Verify path is adjusted for mounted app"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1404,7 +1404,7 @@
       "Step 2: Request path where $app1 returns 404",
       "Step 3: Verify $app2 handles request"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1414,7 +1414,7 @@
       "Step 2: Send any request",
       "Step 3: Verify 404 response with custom body"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1425,7 +1425,7 @@
       "Step 3: Verify 301/302 response",
       "Step 4: Verify Location header points to /new-location"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1437,7 +1437,7 @@
       "Step 3: Verify route handler called",
       "Step 4: Verify params->{id} = 123"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1447,7 +1447,7 @@
       "Step 2: Send POST /users",
       "Step 3: Verify 405 Method Not Allowed response"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1458,7 +1458,7 @@
       "Step 3: Verify route handler called",
       "Step 4: Verify params->{path} = 'docs/readme.txt'"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1469,7 +1469,7 @@
       "Step 3: Verify route handler called",
       "Step 4: Verify response has headers but no body"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1481,7 +1481,7 @@
       "Step 3: Verify request reaches backend",
       "Step 4: Verify response returned to client"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1492,7 +1492,7 @@
       "Step 3: Verify CGI script is executed",
       "Step 4: Verify CGI output returned as response"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1503,7 +1503,7 @@
       "Step 2: Send request to health endpoint",
       "Step 3: Verify 200 response with status JSON"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1513,7 +1513,7 @@
       "Step 2: Send request",
       "Step 3: Verify app is loaded and handles request"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1525,7 +1525,7 @@
       "Step 3: Send message",
       "Step 4: Verify message is echoed back"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1536,7 +1536,7 @@
       "Step 3: Publish message",
       "Step 4: Verify all clients receive message"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1547,7 +1547,7 @@
       "Step 3: Send message in room A",
       "Step 4: Verify only room A clients receive it"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1559,7 +1559,7 @@
       "Step 3: Verify events are received",
       "Step 4: Verify event format is correct"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1570,7 +1570,7 @@
       "Step 3: Publish event to channel A",
       "Step 4: Verify subscriber receives event"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1581,7 +1581,7 @@
       "Step 2: Send requests up to limit",
       "Step 3: Verify excess requests are throttled"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -1592,7 +1592,7 @@
       "Step 3: Verify response arrives after callback fires",
       "Step 4: Verify timeout returns appropriate error"
     ],
-    "passes": false
+    "passes": true
   },
 
   {
@@ -1603,7 +1603,7 @@
       "Step 2: Verify NAME, SYNOPSIS, DESCRIPTION sections",
       "Step 3: Verify configuration options documented"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1613,7 +1613,7 @@
       "Step 2: Verify NAME, SYNOPSIS, DESCRIPTION sections",
       "Step 3: Verify usage examples are runnable"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -1631,6 +1631,6 @@
       "Step 1: Run prove -l t/app/",
       "Step 2: Verify all tests pass"
     ],
-    "passes": false
+    "passes": true
   }
 ]
