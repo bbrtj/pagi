@@ -221,7 +221,7 @@
       "Step 3: Send a GET request to the server",
       "Step 4: Verify response contains 'Hello from lifespan via shared state'"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -232,7 +232,7 @@
       "Step 3: Verify server logs error and exits",
       "Step 4: Verify no connections are accepted"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -244,7 +244,7 @@
       "Step 4: Verify server waits for lifespan.shutdown.complete",
       "Step 5: Verify server exits cleanly after shutdown completes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

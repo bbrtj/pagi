@@ -1,5 +1,83 @@
 # PAGI Reference Server - Development Progress
 
+## Session 9: Step 6 - Lifespan Protocol (2024-11-30)
+
+### Completed Tasks
+
+1. **Implemented Lifespan Protocol**
+   - Create lifespan scope on server startup with `type => 'lifespan'`
+   - Emit `lifespan.startup` event before accepting connections
+   - Wait for `lifespan.startup.complete` before listening
+   - Handle `lifespan.startup.failed` (log and exit)
+   - Store state hashref from lifespan scope
+   - Shallow-copy state into each request scope (`{%{$self->{state}}}`)
+   - Emit `lifespan.shutdown` on shutdown()
+   - Wait for `lifespan.shutdown.complete` before exit
+   - Handle `lifespan.shutdown.failed` (log and terminate)
+
+2. **Updated PAGI::Server**
+   - Added `_run_lifespan_startup()` async method
+   - Added `_run_lifespan_shutdown()` async method
+   - Modified `listen()` to run lifespan startup first
+   - Modified `shutdown()` to run lifespan shutdown
+   - Apps that don't support lifespan (throw "unsupported scope type") continue to work
+
+3. **Updated PAGI::Server::Connection**
+   - Changed state passing to shallow-copy per spec: `state => { %{$self->{state}} }`
+   - Applied to all scope types: HTTP, WebSocket, SSE
+
+4. **Fixed examples/06-lifespan-state/app.pl**
+   - Changed return statement to `\&app;` for proper `do` loading
+
+5. **Created comprehensive t/06-lifespan.t tests**
+   - Lifespan startup initializes shared state
+   - Shared state is shallow-copied to each request
+   - Lifespan startup failure prevents server start
+   - Graceful shutdown sends lifespan.shutdown event
+   - Apps without lifespan support still work
+
+6. **Updated existing test apps for lifespan compatibility**
+   - t/01-hello-http.t: scope test app and error app handle lifespan
+   - t/04-websocket.t: scope type, subprotocol, rejection tests handle lifespan
+   - t/05-sse.t: scope type test handles lifespan
+
+### Test Results
+
+All tests pass:
+```
+prove -l t/
+All tests successful.
+Files=10, Tests=40
+```
+
+### Features Marked as Passing (27/75)
+
+New features passing (3 new):
+- Lifespan startup initializes shared state - 06-lifespan-state app
+- Lifespan startup failure prevents connection acceptance
+- Graceful shutdown waits for lifespan.shutdown.complete
+
+### Key Code Changes
+
+**lib/PAGI/Server.pm:**
+- Added `_run_lifespan_startup()` - creates lifespan scope, sends startup event, waits for complete/failed
+- Added `_run_lifespan_shutdown()` - sends shutdown event, waits for complete/failed
+- Apps throwing "unsupported scope type" for lifespan are handled gracefully
+- `listen()` runs lifespan startup before accepting connections
+- `shutdown()` runs lifespan shutdown before stopping
+
+**lib/PAGI/Server/Connection.pm:**
+- State passed to scopes is now a shallow copy: `{ %{$self->{state}} }`
+
+### Next Steps for Future Sessions
+
+1. **Step 7: Extensions Framework (fullflush)** (next priority)
+   - Add extensions hashref to scope
+   - Implement fullflush extension
+   - Handle http.fullflush event from app
+
+---
+
 ## Session 8: Step 5 - Server-Sent Events (SSE) (2024-11-30)
 
 ### Completed Tasks
