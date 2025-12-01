@@ -378,7 +378,7 @@
       "Step 2: Verify server binds to all interfaces",
       "Step 3: Verify server is accessible from localhost"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -443,7 +443,7 @@
       "Step 3: Verify all responses are received in order",
       "Step 4: Verify connection remains open for keep-alive"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -488,7 +488,7 @@
       "Step 3: Wait for timeout period",
       "Step 4: Verify connection is closed by server"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -508,7 +508,7 @@
       "Step 2: Send POST request with body exceeding limit",
       "Step 3: Verify response status is 413 Payload Too Large"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -646,7 +646,7 @@
       "Step 4: Verify send() does not throw error",
       "Step 5: Verify send() returns completed Future"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -658,7 +658,7 @@
       "Step 4: Send request body",
       "Step 5: Verify Future resolves with http.request event"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -669,7 +669,7 @@
       "Step 3: Verify app throws 'Unsupported scope type' exception",
       "Step 4: Verify server handles the exception gracefully"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -680,7 +680,7 @@
       "Step 3: Verify wrapped app receives modified scope",
       "Step 4: Verify original scope is not mutated"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -691,7 +691,7 @@
       "Step 3: Verify access log contains request method and path",
       "Step 4: Verify access log contains response status"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -713,7 +713,7 @@
       "Step 2: Verify subroutines use signature syntax ($arg) not @_",
       "Step 3: Verify async/await syntax is used for async operations"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -723,7 +723,7 @@
       "Step 2: Verify all tests pass",
       "Step 3: Verify no warnings or errors"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -762,7 +762,7 @@
       "Step 2: Verify Connection.pm handles all I/O via IO::Async",
       "Step 3: Verify architecture allows adding HTTP2/HTTP3 modules"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "style",
@@ -814,7 +814,7 @@
       "Step 2: Send request with Content-Length: 10 but only 5 bytes in body",
       "Step 3: Verify server handles the incomplete request appropriately"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -834,6 +834,6 @@
       "Step 2: Trigger an error condition",
       "Step 3: Verify on_error callback receives error details"
     ],
-    "passes": false
+    "passes": true
   }
 ]

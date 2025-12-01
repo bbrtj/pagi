@@ -11,7 +11,10 @@
       "Bash(/Users/jnapiorkowski/Desktop/PAGI/init.sh)",
       "Bash(perl -e:*)",
       "Bash(./bin/pagi-server:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(perl -c:*)",
+      "Bash(perl -Ilib:*)",
+      "Bash(cpanm:*)"
     ],
     "deny": [],
     "ask": []
