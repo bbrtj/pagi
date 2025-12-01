@@ -122,6 +122,7 @@
             Debug.pm                 # Debug panel
             Throttle.pm              # Request throttling
             Combine.pm               # Custom routing
+            Delayed.pm               # Deferred response (long-polling)
           Middleware.pm              # Base class and builder DSL
           Middleware/
             # Tier 1 - Essential
@@ -255,6 +256,7 @@
           18-debug.t                 # Debug panel
           19-throttle.t              # Request throttling
           20-combine.t               # Custom routing
+          21-delayed.t               # Deferred response
         lib/
           Test/PAGI/Server.pm        # Test utilities
     </layout>
@@ -1370,29 +1372,26 @@
           - HTTP method routing (GET, POST, PUT, DELETE, etc.)
           - Path pattern matching with parameters (/users/:id)
           - Wildcard/splat patterns (/files/*path)
-          - Optional parameters (/users/:id?)
-          - Parameter constraints (regex validation)
-          - Named routes for URL generation
-          - Route groups with shared prefix
           - Automatic 405 Method Not Allowed
-          - Automatic OPTIONS response
           - HEAD handled as GET (body suppressed)
+          - Simple DSL for route definition
         - Scope additions for matched routes:
           - scope->{router}{params} = captured parameters
-          - scope->{router}{route} = route name
-          - scope->{router}{match} = matched pattern
-        - URL generation: $router->url_for($name, %params)
-        - Write t/app/04-router.t (comprehensive)
+        - Write t/app/04-router.t
       </tasks>
       <acceptance_criteria>
         - Routes match by method and path
         - Path parameters captured correctly
         - Wildcards capture remainder of path
-        - Constraints reject invalid parameters
         - 405 returned for wrong method
-        - URL generation produces correct paths
-        - Route groups work with shared middleware
+        - HEAD requests work as GET without body
       </acceptance_criteria>
+      <design_notes>
+        Keep the router simple for initial implementation. Advanced features
+        like named routes, URL generation, route groups, constraints, and
+        middleware per-route can be added in future iterations if needed.
+        The goal is a functional router that covers common use cases.
+      </design_notes>
     </step>
 
     <step number="30">
@@ -1481,6 +1480,12 @@
         - APPS.md (App::WebSocket::Echo, ::Chat, ::Broadcast)
         - docs/specs/www.mkdn (WebSocket events)
       </spec_references>
+      <design_notes>
+        These applications serve as both reusable components and demonstration
+        code showing how to build WebSocket applications with PAGI. They provide
+        ready-to-use solutions for common patterns while also serving as
+        reference implementations for developers building custom WebSocket apps.
+      </design_notes>
       <tasks>
         - Implement PAGI::App::WebSocket::Echo:
           - Echo received messages back to sender
@@ -1519,6 +1524,12 @@
         - APPS.md (App::SSE::Stream, App::SSE::Pubsub)
         - docs/specs/www.mkdn (SSE events)
       </spec_references>
+      <design_notes>
+        These applications serve as both reusable components and demonstration
+        code showing how to build SSE applications with PAGI. They provide
+        ready-to-use solutions for event streaming while also serving as
+        reference implementations for developers building custom SSE apps.
+      </design_notes>
       <tasks>
         - Implement PAGI::App::SSE::Stream:
           - Event generator callback pattern
@@ -1546,10 +1557,10 @@
     </step>
 
     <step number="34">
-      <title>Development Applications (Tier 3)</title>
+      <title>Development and Utility Applications (Tier 3)</title>
       <target_example>Development tools</target_example>
       <spec_references>
-        - APPS.md (App::Debug, App::Throttle, App::Combine)
+        - APPS.md (App::Debug, App::Throttle, App::Combine, App::Delayed)
       </spec_references>
       <tasks>
         - Implement PAGI::App::Debug:
@@ -1569,15 +1580,22 @@
           - Custom routing logic callback
           - Access to multiple named apps
           - Complex routing decisions
+        - Implement PAGI::App::Delayed:
+          - Deferred/delayed response pattern
+          - Useful for long-polling scenarios
+          - Callback invoked when response ready
+          - Timeout handling
         - Write t/app/18-debug.t
         - Write t/app/19-throttle.t
         - Write t/app/20-combine.t
+        - Write t/app/21-delayed.t
       </tasks>
       <acceptance_criteria>
         - Debug panel shows request info
         - Disabled in production mode
         - Throttle limits requests per client
         - Combine enables custom routing
+        - Delayed supports async response patterns
         - All apps compose with URLMap/Cascade
       </acceptance_criteria>
     </step>
