@@ -311,7 +311,7 @@
       "Step 3: Verify scope.extensions.tls.client_cert_chain is populated",
       "Step 4: Verify scope.extensions.tls.client_cert_name contains DN"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -389,7 +389,7 @@
       "Step 3: Verify HTTPS connection works",
       "Step 4: Verify scope.scheme is 'https'"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

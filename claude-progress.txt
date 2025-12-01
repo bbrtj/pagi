@@ -52,14 +52,16 @@ All tests pass:
 ```
 prove -l t/
 All tests successful.
-Files=10, Tests=51
+Files=10, Tests=53
 ```
 
-### Features Marked as Passing (32/75)
+### Features Marked as Passing (34/75)
 
-New features passing (2 new):
+New features passing (4 new):
 - TLS connection populates scope.extensions.tls - 08-tls-introspection app
 - Non-TLS connections have no tls extension
+- TLS client certificates are captured when provided
+- CLI launcher supports --ssl-cert and --ssl-key for HTTPS
 
 ### Key Code Changes
 
@@ -75,11 +77,7 @@ New features passing (2 new):
 
 ### Next Steps for Future Sessions
 
-1. **Step 8 continued: Client Certificate Testing**
-   - Test client certificate capture and verification
-   - Update CLI to support --ssl-cert and --ssl-key options
-
-2. **Step 9: PSGI Compatibility Bridge**
+1. **Step 9: PSGI Compatibility Bridge** (next priority)
    - Create PAGI::App::WrapPSGI adapter module
    - Convert PAGI scope to PSGI %env
    - Support streaming PSGI responses
