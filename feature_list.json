@@ -188,7 +188,7 @@
       "Step 5: Verify event: tick with data: 2 is received",
       "Step 6: Verify event: done with data: finished is received"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -199,7 +199,7 @@
       "Step 3: Verify multi-line data is split into multiple data: lines",
       "Step 4: Verify EventSource API reconstructs multi-line data"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -210,7 +210,7 @@
       "Step 3: Disconnect the client mid-stream",
       "Step 4: Verify sse.disconnect event is emitted to app"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -804,7 +804,7 @@
       "Step 3: Verify id: field appears in event stream",
       "Step 4: Verify retry: field appears in event stream"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
