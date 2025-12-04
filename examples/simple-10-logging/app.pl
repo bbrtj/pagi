@@ -161,6 +161,11 @@ $app->get('/users' => sub ($c) {
 
 $app->get('/users/:id' => sub ($c) {
     my $id = $c->path_params->{id};
+
+    # $c->log provides request-aware logging to STDERR
+    # Output: [2025-12-04 10:30:45.123] [DEBUG] GET /users/42 - Looking up user 42
+    $c->log->debug("Looking up user $id");
+
     $c->json({
         user => { id => $id, name => 'User ' . $id },
     });
@@ -187,6 +192,8 @@ $app->get('/slow' => sub ($c) {
 });
 
 $app->get('/error' => sub ($c) {
+    # Use $c->log->error for error logging
+    $c->log->error("About to simulate an error");
     # Simulate an error - the log will show 500 status
     die "Something went wrong!";
 });

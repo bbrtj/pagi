@@ -328,6 +328,7 @@ sub new ($class, %args) {
         _mounted_apps    => [],           # Mounted sub-applications [(prefix, app, middleware), ...]
         _prefix          => '',           # Current route group prefix
         _group_middleware => [],          # Current group middleware stack
+        _loop            => undef,        # Event loop (set when server starts)
     }, $class;
 
     return $self;
@@ -371,6 +372,31 @@ sub stash ($self) {
     return $self->{stash};
 }
 
+=head2 loop
+
+    my $loop = $app->loop;
+
+Returns the IO::Async::Loop instance when running under a PAGI server.
+Returns undef if not yet running or if the server doesn't provide a loop.
+
+This is useful for advanced async operations like timers, custom IO::Async
+notifiers, or direct use of PAGI::Util::AsyncFile.
+
+    $app->on(startup => sub ($app) {
+        # Set up a periodic timer
+        my $loop = $app->loop;
+        $loop->add(IO::Async::Timer::Periodic->new(
+            interval => 60,
+            on_tick => sub { cleanup_stale_sessions() },
+        )->start) if $loop;
+    });
+
+=cut
+
+sub loop ($self) {
+    return $self->{_loop};
+}
+
 =head2 to_app
 
     my $pagi_app = $app->to_app;
@@ -389,6 +415,11 @@ sub to_app ($self) {
 # Internal: Main request dispatcher
 async sub _handle_request ($self, $scope, $receive, $send) {
     my $type = $scope->{type} // '';
+
+    # Capture the event loop from the scope (provided by PAGI server)
+    if (my $loop = $scope->{pagi}{loop}) {
+        $self->{_loop} //= $loop;
+    }
 
     if ($type eq 'lifespan') {
         await $self->_handle_lifespan($scope, $receive, $send);

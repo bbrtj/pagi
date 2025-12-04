@@ -9,6 +9,8 @@ our $VERSION = '0.01';
 use File::Temp ();
 use File::Copy ();
 use File::Basename ();
+use Future::AsyncAwait;
+use PAGI::Util::AsyncFile;
 
 =head1 NAME
 
@@ -192,6 +194,25 @@ sub slurp ($self) {
     return '';
 }
 
+=head2 slurp_async
+
+    my $data = await $upload->slurp_async($loop);
+
+Async version of slurp that returns a Future resolving to the file content.
+Uses non-blocking I/O for tempfile reads.
+
+=cut
+
+async sub slurp_async ($self, $loop) {
+    if (defined $self->{content}) {
+        return $self->{content};
+    }
+    elsif ($self->{tempfile} && -f $self->{tempfile}) {
+        return await PAGI::Util::AsyncFile->read_file($loop, $self->{tempfile});
+    }
+    return '';
+}
+
 =head2 filehandle
 
     my $fh = $upload->filehandle;
@@ -254,6 +275,34 @@ sub move_to ($self, $destination) {
     return 1;
 }
 
+=head2 move_to_async
+
+    await $upload->move_to_async($loop, '/path/to/destination.jpg');
+
+Async version of move_to that returns a Future.
+Uses non-blocking I/O for file operations.
+
+=cut
+
+async sub move_to_async ($self, $loop, $destination) {
+    if (defined $self->{content}) {
+        # Write in-memory content to destination
+        await PAGI::Util::AsyncFile->write_file($loop, $destination, $self->{content});
+    }
+    elsif ($self->{tempfile} && -f $self->{tempfile}) {
+        # Read tempfile and write to destination, then remove tempfile
+        my $content = await PAGI::Util::AsyncFile->read_file($loop, $self->{tempfile});
+        await PAGI::Util::AsyncFile->write_file($loop, $destination, $content);
+        unlink $self->{tempfile};
+        $self->{tempfile} = undef;
+    }
+    else {
+        die "No content to move";
+    }
+
+    return 1;
+}
+
 =head2 copy_to
 
     $upload->copy_to('/path/to/destination.jpg');
@@ -276,6 +325,32 @@ sub copy_to ($self, $destination) {
         # Copy temp file to destination
         File::Copy::copy($self->{tempfile}, $destination)
             or die "Cannot copy to $destination: $!";
+    }
+    else {
+        die "No content to copy";
+    }
+
+    return 1;
+}
+
+=head2 copy_to_async
+
+    await $upload->copy_to_async($loop, '/path/to/destination.jpg');
+
+Async version of copy_to that returns a Future.
+Uses non-blocking I/O for file operations.
+
+=cut
+
+async sub copy_to_async ($self, $loop, $destination) {
+    if (defined $self->{content}) {
+        # Write in-memory content to destination
+        await PAGI::Util::AsyncFile->write_file($loop, $destination, $self->{content});
+    }
+    elsif ($self->{tempfile} && -f $self->{tempfile}) {
+        # Read tempfile and write to destination
+        my $content = await PAGI::Util::AsyncFile->read_file($loop, $self->{tempfile});
+        await PAGI::Util::AsyncFile->write_file($loop, $destination, $content);
     }
     else {
         die "No content to copy";

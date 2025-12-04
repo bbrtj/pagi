@@ -14,6 +14,7 @@ use PAGI::Simple::Response;
 use PAGI::Simple::CookieUtil;
 use PAGI::Simple::Negotiate;
 use PAGI::Simple::StreamWriter;
+use PAGI::Util::AsyncFile;
 use File::Basename ();
 
 =head1 NAME
@@ -176,6 +177,51 @@ This is useful when you need the complete path as the client requested it.
 
 sub full_path ($self) {
     return $self->{scope}{_full_path} // $self->{scope}{path} // '/';
+}
+
+=head2 loop
+
+    my $loop = $c->loop;
+
+Returns the IO::Async::Loop instance for this request. This is a shortcut
+for accessing C<< $c->app->loop >> or C<< $scope->{pagi}{loop} >>.
+
+Useful for async file operations or setting up timers:
+
+    $app->get('/download/:file' => async sub ($c) {
+        my $file = $c->param('file');
+        my $loop = $c->loop;
+
+        if ($loop) {
+            my $content = await PAGI::Util::AsyncFile->read_file($loop, "/files/$file");
+            $c->text($content);
+        }
+    });
+
+=cut
+
+sub loop ($self) {
+    return $self->{scope}{pagi}{loop} // ($self->{app} ? $self->{app}->loop : undef);
+}
+
+=head2 log
+
+    $c->log->info("Processing request");
+    $c->log->debug("User ID: $id");
+    $c->log->warn("Rate limit approaching");
+    $c->log->error("Database connection failed");
+
+Returns a logger instance for this request. Log messages are written to
+STDERR with a consistent format including timestamp, level, and request path.
+
+The logger is request-aware and includes context like the request path
+in each message. Available log levels: debug, info, warn, error.
+
+=cut
+
+sub log ($self) {
+    $self->{_logger} //= PAGI::Simple::Context::Logger->new(context => $self);
+    return $self->{_logger};
 }
 
 =head2 stash
@@ -764,6 +810,16 @@ Options:
 
 =back
 
+B<Important:> This method returns a Future and should be awaited. Route handlers
+using C<stream> should be declared as C<async sub>:
+
+    $app->get('/events' => async sub ($c) {
+        await $c->stream(async sub ($writer) {
+            await $writer->writeln("data: hello");
+            await $writer->close;
+        });
+    });
+
 =cut
 
 async sub stream ($self, $callback, %opts) {
@@ -817,9 +873,15 @@ async sub stream ($self, $callback, %opts) {
         return "chunk " . ++$count . "\n";
     });
 
-    # From a filehandle
+    # From a file path (recommended - uses non-blocking I/O)
+    await $c->stream_from('/path/to/file.txt', chunk_size => 8192);
+
+    # From a filehandle (blocking I/O - for backward compatibility)
     open my $fh, '<', $file;
     await $c->stream_from($fh, chunk_size => 8192);
+
+    # With delay between chunks (for visible streaming)
+    await $c->stream_from(\@chunks, delay => 1);  # 1 second between chunks
 
 Send a streaming response from an iterator source. The source can be:
 
@@ -829,7 +891,9 @@ Send a streaming response from an iterator source. The source can be:
 
 =item * A coderef - Called repeatedly; return undef to end the stream
 
-=item * A filehandle - Read and stream in chunks
+=item * A file path (string) - Read and stream using non-blocking async I/O (recommended)
+
+=item * A filehandle - Read and stream in chunks (blocking I/O, for backward compatibility)
 
 =back
 
@@ -839,9 +903,24 @@ Options:
 
 =item * content_type - Content-Type header (default: text/plain)
 
-=item * chunk_size - Size of chunks when reading from filehandle (default: 65536)
+=item * chunk_size - Size of chunks when reading from file/filehandle (default: 65536)
+
+=item * delay - Delay in seconds between chunks (default: 0). Use this to make
+streaming visible to clients or to rate-limit output. Even a small delay like
+0.01 can help ensure chunks are flushed to the client individually.
 
 =back
+
+B<Note:> For best performance with large files, pass a file path string rather
+than a filehandle. File paths use non-blocking async I/O which doesn't block
+the event loop, while filehandles use blocking I/O for backward compatibility.
+
+B<Important:> This method returns a Future and should be awaited. Route handlers
+using C<stream_from> should be declared as C<async sub>:
+
+    $app->get('/stream' => async sub ($c) {
+        await $c->stream_from(\@data, delay => 0.5);
+    });
 
 =cut
 
@@ -850,11 +929,31 @@ async sub stream_from ($self, $source, %opts) {
 
     my $content_type = $opts{content_type} // 'text/plain; charset=utf-8';
     my $chunk_size = $opts{chunk_size} // 65536;
+    my $delay = $opts{delay};
+
+    # Get loop for delay and/or async file I/O
+    my $loop;
+    if (defined $delay && $delay > 0) {
+        require IO::Async::Loop;
+        $loop = IO::Async::Loop->new;
+    }
+
+    # Check if source is a file path (non-ref string that's a file)
+    my $is_file_path = !ref($source) && defined($source) && -f $source;
+
+    # For file paths, get the loop from scope for async I/O
+    my $async_loop = $self->{scope}{pagi}{loop};
 
     await $self->stream(async sub ($writer) {
+        my $first = 1;  # Don't delay before first chunk
+
         if (ref($source) eq 'ARRAY') {
             # Array of chunks
             for my $chunk (@$source) {
+                if (!$first && $loop) {
+                    await $loop->delay_future(after => $delay);
+                }
+                $first = 0;
                 await $writer->write($chunk);
             }
         }
@@ -863,20 +962,57 @@ async sub stream_from ($self, $source, %opts) {
             while (1) {
                 my $chunk = $source->();
                 last unless defined $chunk;
+                if (!$first && $loop) {
+                    await $loop->delay_future(after => $delay);
+                }
+                $first = 0;
                 await $writer->write($chunk);
             }
         }
+        elsif ($is_file_path && $async_loop) {
+            # File path with async I/O (non-blocking)
+            await PAGI::Util::AsyncFile->read_file_chunked(
+                $async_loop, $source,
+                async sub ($buffer) {
+                    if (!$first && $loop) {
+                        await $loop->delay_future(after => $delay);
+                    }
+                    $first = 0;
+                    await $writer->write($buffer);
+                },
+                chunk_size => $chunk_size
+            );
+        }
+        elsif ($is_file_path) {
+            # File path without async loop - fall back to blocking I/O
+            open my $fh, '<:raw', $source or die "Cannot open $source: $!";
+            while (1) {
+                my $buffer;
+                my $bytes = read($fh, $buffer, $chunk_size);
+                last unless $bytes;
+                if (!$first && $loop) {
+                    await $loop->delay_future(after => $delay);
+                }
+                $first = 0;
+                await $writer->write($buffer);
+            }
+            close $fh;
+        }
         elsif (ref($source) eq 'GLOB' || (Scalar::Util::blessed($source) && $source->can('read'))) {
-            # Filehandle
+            # Filehandle (blocking I/O for backward compatibility)
             while (1) {
                 my $buffer;
                 my $bytes = read($source, $buffer, $chunk_size);
                 last unless $bytes;
+                if (!$first && $loop) {
+                    await $loop->delay_future(after => $delay);
+                }
+                $first = 0;
                 await $writer->write($buffer);
             }
         }
         else {
-            die "stream_from: unsupported source type " . ref($source);
+            die "stream_from: unsupported source type " . (ref($source) || 'SCALAR');
         }
 
         await $writer->close;
@@ -915,6 +1051,13 @@ Options:
 
 =back
 
+B<Important:> This method returns a Future and should be awaited. Route handlers
+using C<send_file> should be declared as C<async sub>:
+
+    $app->get('/download/:file' => async sub ($c) {
+        await $c->send_file("/files/" . $c->path_params->{file});
+    });
+
 =cut
 
 async sub send_file ($self, $path, %opts) {
@@ -949,22 +1092,47 @@ async sub send_file ($self, $path, %opts) {
         headers => $self->{_headers},
     });
 
-    # Stream file
-    open my $fh, '<:raw', $path or die "Cannot open $path: $!";
+    # Get the event loop for async file I/O
+    my $loop = $self->{scope}{pagi}{loop};
 
-    my $total = 0;
-    while (my $bytes = read($fh, my $buffer, $chunk_size)) {
-        $total += $bytes;
-        my $more = $total < $size ? 1 : 0;
+    if ($loop) {
+        # Use non-blocking async file I/O
+        my $total = 0;
+        my $send = $self->{send};
 
-        await $self->{send}->({
-            type => 'http.response.body',
-            body => $buffer,
-            more => $more,
-        });
+        await PAGI::Util::AsyncFile->read_file_chunked(
+            $loop, $path,
+            async sub ($buffer) {
+                $total += length($buffer);
+                my $more = $total < $size ? 1 : 0;
+
+                await $send->({
+                    type => 'http.response.body',
+                    body => $buffer,
+                    more => $more,
+                });
+            },
+            chunk_size => $chunk_size
+        );
     }
+    else {
+        # Fallback to blocking I/O if no loop available (e.g., in tests)
+        open my $fh, '<:raw', $path or die "Cannot open $path: $!";
 
-    close $fh;
+        my $total = 0;
+        while (my $bytes = read($fh, my $buffer, $chunk_size)) {
+            $total += $bytes;
+            my $more = $total < $size ? 1 : 0;
+
+            await $self->{send}->({
+                type => 'http.response.body',
+                body => $buffer,
+                more => $more,
+            });
+        }
+
+        close $fh;
+    }
 }
 
 # Internal: Guess MIME type from file extension
@@ -1159,5 +1327,44 @@ package PAGI::Simple::Abort;
 sub code ($self) { return $self->{code}; }
 sub message ($self) { return $self->{message}; }
 sub context ($self) { return $self->{context}; }
+
+# PAGI::Simple::Context::Logger - Request-aware logger
+package PAGI::Simple::Context::Logger;
+
+use strict;
+use warnings;
+use experimental 'signatures';
+use Time::HiRes qw(time);
+use POSIX qw(strftime);
+
+sub new ($class, %args) {
+    my $self = bless {
+        context => $args{context},
+    }, $class;
+    return $self;
+}
+
+sub _format_message ($self, $level, $message) {
+    my $now = time();
+    my $timestamp = strftime("%Y-%m-%d %H:%M:%S", localtime($now));
+    my $ms = sprintf(".%03d", ($now - int($now)) * 1000);
+
+    my $c = $self->{context};
+    my $method = $c->method // '-';
+    my $path = $c->path // '/';
+
+    return "[$timestamp$ms] [$level] $method $path - $message\n";
+}
+
+sub _log ($self, $level, @messages) {
+    my $message = join(' ', @messages);
+    my $formatted = $self->_format_message($level, $message);
+    print STDERR $formatted;
+}
+
+sub debug ($self, @messages) { $self->_log('DEBUG', @messages); }
+sub info  ($self, @messages) { $self->_log('INFO',  @messages); }
+sub warn  ($self, @messages) { $self->_log('WARN',  @messages); }
+sub error ($self, @messages) { $self->_log('ERROR', @messages); }
 
 1;

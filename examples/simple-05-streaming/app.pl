@@ -60,6 +60,9 @@ $app->get('/' => sub ($c) {
         <button onclick="streamCountdown()">Countdown</button>
         <button onclick="streamJSON()">JSON Stream</button>
         <button onclick="streamProgress()">Progress</button>
+        <button onclick="streamIterator()">Iterator</button>
+        <button onclick="streamArray()">Array</button>
+        <button onclick="streamCustom()">Custom</button>
         <button onclick="clearOutput()">Clear</button>
         <div id="output">Click a button to start streaming...</div>
     </div>
@@ -87,13 +90,13 @@ $app->get('/' => sub ($c) {
 
         <div class="endpoint">
             <h3>GET /iterator</h3>
-            <p>Iterator-based streaming from coderef</p>
+            <p>Iterator-based streaming from coderef (1 second delay between chunks)</p>
             <pre>curl http://localhost:3000/iterator</pre>
         </div>
 
         <div class="endpoint">
             <h3>GET /array</h3>
-            <p>Stream from an array of chunks</p>
+            <p>Stream from an array of chunks (1 second delay between chunks)</p>
             <pre>curl http://localhost:3000/array</pre>
         </div>
 
@@ -135,6 +138,9 @@ $app->get('/' => sub ($c) {
     function streamCountdown() { streamTo('/countdown'); }
     function streamJSON() { streamTo('/json-stream'); }
     function streamProgress() { streamTo('/progress'); }
+    function streamIterator() { streamTo('/iterator'); }
+    function streamArray() { streamTo('/array'); }
+    function streamCustom() { streamTo('/custom-stream'); }
     function clearOutput() { document.getElementById('output').textContent = ''; }
     </script>
 </body>
@@ -146,8 +152,11 @@ HTML
 # --- Countdown streaming (manual chunks with delays) ---
 
 $app->get('/countdown' => sub ($c) {
+    $c->log->info("Starting countdown stream");
+
     $c->stream(async sub ($writer) {
-        my $loop = IO::Async::Loop->new;
+        # Use $c->loop for async operations (falls back to new loop if unavailable)
+        my $loop = $c->loop // IO::Async::Loop->new;
 
         await $writer->writeln("=== Countdown Starting ===");
 
@@ -158,14 +167,18 @@ $app->get('/countdown' => sub ($c) {
 
         await $writer->writeln("Liftoff!");
         await $writer->close;
+
+        $c->log->info("Countdown complete");
     }, content_type => 'text/plain; charset=utf-8');
 });
 
 # --- JSON array streaming ---
 
 $app->get('/json-stream' => sub ($c) {
+    $c->log->debug("Starting JSON stream");
+
     $c->stream(async sub ($writer) {
-        my $loop = IO::Async::Loop->new;
+        my $loop = $c->loop // IO::Async::Loop->new;
         my @items = (
             { id => 1, name => "First", status => "processing" },
             { id => 2, name => "Second", status => "complete" },
@@ -192,7 +205,7 @@ $app->get('/json-stream' => sub ($c) {
 
 $app->get('/progress' => sub ($c) {
     $c->stream(async sub ($writer) {
-        my $loop = IO::Async::Loop->new;
+        my $loop = $c->loop // IO::Async::Loop->new;
 
         await $writer->writeln("Starting task...\n");
 
@@ -210,20 +223,20 @@ $app->get('/progress' => sub ($c) {
 
 # --- Iterator-based streaming ---
 
-$app->get('/iterator' => sub ($c) {
+$app->get('/iterator' => async sub ($c) {
     my $count = 0;
     my $max = 10;
 
-    $c->stream_from(sub {
+    await $c->stream_from(sub {
         return undef if $count >= $max;
         $count++;
         return "Line $count of $max\n";
-    }, content_type => 'text/plain');
+    }, content_type => 'text/plain', delay => 1);  # 1 second between chunks
 });
 
 # --- Array-based streaming ---
 
-$app->get('/array' => sub ($c) {
+$app->get('/array' => async sub ($c) {
     my @chunks = (
         "=== Starting ===\n",
         "Chunk 1: Hello\n",
@@ -233,12 +246,12 @@ $app->get('/array' => sub ($c) {
         "=== Complete ===\n",
     );
 
-    $c->stream_from(\@chunks, content_type => 'text/plain');
+    await $c->stream_from(\@chunks, content_type => 'text/plain', delay => 1);  # 1 second between chunks
 });
 
 # --- File download ---
 
-$app->get('/download/:filename' => sub ($c) {
+$app->get('/download/:filename' => async sub ($c) {
     my $filename = $c->path_params->{filename};
 
     # Create a sample file if it doesn't exist
@@ -258,12 +271,12 @@ $app->get('/download/:filename' => sub ($c) {
         close $fh;
     }
 
-    $c->send_file($filepath, filename => $filename);
+    await $c->send_file($filepath, filename => $filename);
 });
 
 # --- Generate large file ---
 
-$app->get('/generate-file' => sub ($c) {
+$app->get('/generate-file' => async sub ($c) {
     # Create a 1MB temp file
     my ($fh, $filename) = tempfile(UNLINK => 1, SUFFIX => '.txt');
 
@@ -273,7 +286,7 @@ $app->get('/generate-file' => sub ($c) {
     }
     close $fh;
 
-    $c->send_file($filename,
+    await $c->send_file($filename,
         filename     => 'generated-1mb.txt',
         content_type => 'text/plain',
         chunk_size   => 32768,  # 32KB chunks
@@ -282,28 +295,32 @@ $app->get('/generate-file' => sub ($c) {
 
 # --- File streaming with inline display ---
 
-$app->get('/view/:filename' => sub ($c) {
+$app->get('/view/:filename' => async sub ($c) {
     my $filename = $c->path_params->{filename};
     my $sample_dir = '/tmp/pagi-streaming-demo';
     my $filepath = "$sample_dir/$filename";
 
     unless (-f $filepath) {
-        $c->status(404)->text("File not found: $filename");
+        await $c->status(404)->text("File not found: $filename");
         return;
     }
 
     # Display inline in browser
-    $c->send_file($filepath, inline => 1);
+    await $c->send_file($filepath, inline => 1);
 });
 
 # --- Streaming with custom headers ---
 
-$app->get('/custom-stream' => sub ($c) {
-    $c->res_header('X-Stream-Type', 'custom')
+$app->get('/custom-stream' => async sub ($c) {
+    $c->log->debug("Custom stream with headers");
+
+    await $c->res_header('X-Stream-Type', 'custom')
       ->res_header('X-Items-Count', '5')
       ->stream(async sub ($writer) {
+          my $loop = $c->loop // IO::Async::Loop->new;
           for my $i (1..5) {
               await $writer->writeln("Item $i");
+              await $loop->delay_future(after => 1);  # 1 second delay
           }
           await $writer->close;
       }, content_type => 'text/plain');

@@ -191,4 +191,96 @@ subtest 'response_started tracking' => sub {
     ok($c->response_started, 'response_started is true after marking');
 };
 
+# Test 12: loop accessor
+subtest 'loop accessor' => sub {
+    # Test with loop in scope
+    my $mock_loop = bless {}, 'IO::Async::Loop';
+    my $c = PAGI::Simple::Context->new(
+        scope => {
+            type => 'http',
+            method => 'GET',
+            path => '/test',
+            pagi => { loop => $mock_loop },
+        },
+        receive => sub { },
+        send    => sub { },
+    );
+
+    is($c->loop, $mock_loop, 'loop returns loop from scope');
+
+    # Test fallback to app->loop
+    my $app_loop = bless {}, 'IO::Async::Loop';
+    my $mock_app = bless { _loop => $app_loop }, 'MockApp';
+    # Add a loop method to MockApp
+    no strict 'refs';
+    *{'MockApp::loop'} = sub { shift->{_loop} };
+
+    my $c2 = PAGI::Simple::Context->new(
+        app   => $mock_app,
+        scope => {
+            type => 'http',
+            method => 'GET',
+            path => '/test',
+            # No pagi.loop in scope
+        },
+        receive => sub { },
+        send    => sub { },
+    );
+
+    is($c2->loop, $app_loop, 'loop falls back to app->loop');
+
+    # Test when no loop available
+    my $c3 = PAGI::Simple::Context->new(
+        scope => {
+            type => 'http',
+            method => 'GET',
+            path => '/test',
+        },
+        receive => sub { },
+        send    => sub { },
+    );
+
+    ok(!defined $c3->loop, 'loop returns undef when not available');
+};
+
+# Test 13: log accessor
+subtest 'log accessor' => sub {
+    my $c = PAGI::Simple::Context->new(
+        scope => {
+            type => 'http',
+            method => 'POST',
+            path => '/api/users',
+        },
+        receive => sub { },
+        send    => sub { },
+    );
+
+    my $log = $c->log;
+    ok(defined $log, 'log returns defined value');
+    isa_ok($log, 'PAGI::Simple::Context::Logger');
+
+    # Test that the same logger is returned (cached) - use refaddr to avoid cycle detection
+    require Scalar::Util;
+    ok(Scalar::Util::refaddr($c->log) == Scalar::Util::refaddr($log),
+       'log returns same instance (cached)');
+
+    # Test logger methods exist
+    ok($log->can('debug'), 'logger has debug method');
+    ok($log->can('info'), 'logger has info method');
+    ok($log->can('warn'), 'logger has warn method');
+    ok($log->can('error'), 'logger has error method');
+
+    # Test log output (capture STDERR)
+    my $stderr = '';
+    {
+        local *STDERR;
+        open STDERR, '>', \$stderr;
+        $log->info("Test message");
+    }
+
+    like($stderr, qr/\[INFO\]/, 'log output contains level');
+    like($stderr, qr/POST \/api\/users/, 'log output contains request info');
+    like($stderr, qr/Test message/, 'log output contains message');
+};
+
 done_testing;

@@ -6,12 +6,15 @@ use Future;
 use Future::AsyncAwait;
 use File::Temp qw(tempfile tempdir);
 use File::Spec;
+use IO::Async::Loop;
 
 # Test: PAGI::Simple file upload support
 
 use PAGI::Simple;
 use PAGI::Simple::Upload;
 use PAGI::Simple::MultipartParser;
+
+my $loop = IO::Async::Loop->new;
 
 #---------------------------------------------------------------------------
 # Helper to create multipart body
@@ -184,6 +187,120 @@ subtest 'Upload - empty file' => sub {
 
     ok($upload->is_empty, 'is_empty true');
     is($upload->size, 0, 'size is 0');
+};
+
+#---------------------------------------------------------------------------
+# Async Upload method tests
+#---------------------------------------------------------------------------
+
+subtest 'Upload - slurp_async in-memory' => sub {
+    my $upload = PAGI::Simple::Upload->new(
+        name    => 'data',
+        content => 'async test content',
+    );
+
+    my $content = $upload->slurp_async($loop)->get;
+    is($content, 'async test content', 'slurp_async returns in-memory content');
+};
+
+subtest 'Upload - slurp_async from tempfile' => sub {
+    my $dir = tempdir(CLEANUP => 1);
+    my $tempfile = File::Spec->catfile($dir, 'upload.tmp');
+
+    # Create a temp file manually
+    open my $fh, '>:raw', $tempfile;
+    print $fh 'tempfile content here';
+    close $fh;
+
+    my $upload = PAGI::Simple::Upload->new(
+        name     => 'data',
+        tempfile => $tempfile,
+        size     => 21,
+    );
+
+    my $content = $upload->slurp_async($loop)->get;
+    is($content, 'tempfile content here', 'slurp_async reads from tempfile');
+};
+
+subtest 'Upload - copy_to_async in-memory' => sub {
+    my $upload = PAGI::Simple::Upload->new(
+        name    => 'file',
+        content => 'async copy content',
+    );
+
+    my $dest = tempdir(CLEANUP => 1) . '/async_copied.txt';
+    $upload->copy_to_async($loop, $dest)->get;
+
+    ok(-f $dest, 'file copied asynchronously');
+    open my $fh, '<', $dest;
+    my $content = do { local $/; <$fh> };
+    is($content, 'async copy content', 'async copy content correct');
+    is($upload->slurp, 'async copy content', 'original still accessible');
+};
+
+subtest 'Upload - copy_to_async from tempfile' => sub {
+    my $dir = tempdir(CLEANUP => 1);
+    my $tempfile = File::Spec->catfile($dir, 'source.tmp');
+
+    # Create source temp file
+    open my $fh, '>:raw', $tempfile;
+    print $fh 'tempfile copy content';
+    close $fh;
+
+    my $upload = PAGI::Simple::Upload->new(
+        name     => 'file',
+        tempfile => $tempfile,
+        size     => 21,
+    );
+
+    my $dest = File::Spec->catfile($dir, 'async_dest.txt');
+    $upload->copy_to_async($loop, $dest)->get;
+
+    ok(-f $dest, 'file copied asynchronously from tempfile');
+    open $fh, '<', $dest;
+    my $content = do { local $/; <$fh> };
+    is($content, 'tempfile copy content', 'async copy from tempfile correct');
+    ok(-f $tempfile, 'original tempfile still exists');
+};
+
+subtest 'Upload - move_to_async in-memory' => sub {
+    my $upload = PAGI::Simple::Upload->new(
+        name    => 'file',
+        content => 'async move content',
+    );
+
+    my $dest = tempdir(CLEANUP => 1) . '/async_moved.txt';
+    $upload->move_to_async($loop, $dest)->get;
+
+    ok(-f $dest, 'file moved asynchronously');
+    open my $fh, '<', $dest;
+    my $content = do { local $/; <$fh> };
+    is($content, 'async move content', 'async move content correct');
+};
+
+subtest 'Upload - move_to_async from tempfile' => sub {
+    my $dir = tempdir(CLEANUP => 1);
+    my $tempfile = File::Spec->catfile($dir, 'move_source.tmp');
+
+    # Create source temp file
+    open my $fh, '>:raw', $tempfile;
+    print $fh 'tempfile move content';
+    close $fh;
+
+    my $upload = PAGI::Simple::Upload->new(
+        name     => 'file',
+        tempfile => $tempfile,
+        size     => 21,
+    );
+
+    my $dest = File::Spec->catfile($dir, 'async_move_dest.txt');
+    $upload->move_to_async($loop, $dest)->get;
+
+    ok(-f $dest, 'file moved asynchronously from tempfile');
+    ok(!-f $tempfile, 'original tempfile removed after move');
+    open $fh, '<', $dest;
+    my $content = do { local $/; <$fh> };
+    is($content, 'tempfile move content', 'async move from tempfile correct');
 };
 
 #---------------------------------------------------------------------------

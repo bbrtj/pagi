@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(perl -Ilib t/simple/22-streaming.t:*)",
+      "Bash(perl -Ilib -c:*)",
+      "WebSearch",
+      "Bash(perl -MIO::Async::FileStream -e:*)",
+      "Bash(prove -l:*)",
+      "Bash(perl:*)",
+      "Bash(prove -Ilib:*)",
+      "Bash(for f in examples/simple-*/app.pl)",
+      "Bash(do echo -n \"$f: \")",
+      "Bash(done)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

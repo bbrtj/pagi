@@ -315,6 +315,24 @@ subtest 'stream_from() - filehandle source' => sub {
     is($body, "line1\nline2\nline3\n", 'filehandle source works');
 };
 
+subtest 'stream_from() - file path source' => sub {
+    # Create a temp file with test data
+    my ($fh, $filename) = tempfile(UNLINK => 1);
+    print $fh "path1\npath2\npath3\n";
+    close $fh;
+
+    my $app = PAGI::Simple->new;
+
+    $app->get('/stream' => sub ($c) {
+        $c->stream_from($filename, chunk_size => 6);
+    });
+
+    my $sent = simulate_request($app, path => '/stream');
+    my $body = get_full_body($sent);
+
+    is($body, "path1\npath2\npath3\n", 'file path source works');
+};
+
 #---------------------------------------------------------------------------
 # Context send_file() method tests
 #---------------------------------------------------------------------------

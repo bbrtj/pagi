@@ -8,6 +8,7 @@ our $VERSION = '0.01';
 
 use Time::HiRes qw(time);
 use Apache::LogFormat::Compiler;
+use PAGI::Util::AsyncFile;
 
 =head1 NAME
 
@@ -107,6 +108,8 @@ Options:
 
 =item * skip_if - Coderef ($path, $status) that returns true to skip logging
 
+=item * loop - IO::Async::Loop instance for async file writes (optional)
+
 =back
 
 =cut
@@ -117,7 +120,9 @@ sub new ($class, %opts) {
         output   => $opts{output} // \*STDERR,
         skip     => $opts{skip} // [],
         skip_if  => $opts{skip_if},
+        loop     => $opts{loop},  # Optional event loop for async writes
         _fh      => undef,
+        _async_output => undef,   # Filename for async writes
     }, $class;
 
     # Resolve format string from presets
@@ -155,14 +160,51 @@ sub _init_output ($self) {
         $self->{_fh} = $out;
         $self->{_writer} = sub { print {$self->{_fh}} @_ };
     } elsif (!ref($out)) {
-        # Filename - open for append
-        open my $fh, '>>', $out or die "Cannot open log file '$out': $!";
-        $fh->autoflush(1);
-        $self->{_fh} = $fh;
-        $self->{_writer} = sub { print {$self->{_fh}} @_ };
+        # Filename - check if we can use async writes
+        if ($self->{loop}) {
+            # Use async file writes when loop is available
+            $self->{_async_output} = $out;
+            $self->{_writer} = sub {
+                my $data = join('', @_);
+                # Fire-and-forget async append - errors logged to STDERR
+                PAGI::Util::AsyncFile->append_file($self->{loop}, $self->{_async_output}, $data)
+                    ->on_fail(sub {
+                        my ($error) = @_;
+                        warn "Async log write failed: $error";
+                    })
+                    ->retain;  # Keep the Future alive without awaiting
+            };
+        }
+        else {
+            # Fallback to blocking I/O when no loop available
+            open my $fh, '>>', $out or die "Cannot open log file '$out': $!";
+            $fh->autoflush(1);
+            $self->{_fh} = $fh;
+            $self->{_writer} = sub { print {$self->{_fh}} @_ };
+        }
     } else {
         die "Invalid output type: " . ref($out);
     }
+}
+
+=head2 set_loop
+
+    $logger->set_loop($loop);
+
+Set the event loop for async file writes. This can be called after construction
+when the loop becomes available. Only affects file-based output.
+
+=cut
+
+sub set_loop ($self, $loop) {
+    $self->{loop} = $loop;
+
+    # Re-initialize output if it's a filename to switch to async
+    if (!ref($self->{output}) && $loop && !$self->{_async_output}) {
+        $self->_init_output;
+    }
+
+    return $self;
 }
 
 =head2 should_log
