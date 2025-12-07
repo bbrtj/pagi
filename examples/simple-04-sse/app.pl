@@ -104,16 +104,8 @@ $app->post('/trigger' => async sub ($c) {
     my $type = $body->{type} // 'notification';
     my $text = $body->{text} // '';
 
-    # Publish to the notifications channel
-    use PAGI::Simple::PubSub;
-    my $pubsub = PAGI::Simple::PubSub->instance;
-
-    # Format as JSON for the SSE event data
-    use JSON::MaybeXS;
-    my $json = JSON::MaybeXS->new(utf8 => 1);
-
-    # The data will be sent as the event data
-    $pubsub->publish('notifications', $text);
+    # Publish to the notifications channel via $app->pubsub
+    $app->pubsub->publish('notifications', $text);
 
     $c->json({ success => 1, published => $text });
 });
@@ -143,10 +135,7 @@ $app->post('/notify/:user' => async sub ($c) {
     my $body = await $c->req->json_body;
     my $text = $body->{text} // '';
 
-    use PAGI::Simple::PubSub;
-    my $pubsub = PAGI::Simple::PubSub->instance;
-
-    my $count = $pubsub->publish("user:$user", $text);
+    my $count = $app->pubsub->publish("user:$user", $text);
 
     $c->json({
         success => $count > 0 ? 1 : 0,
@@ -159,10 +148,7 @@ $app->post('/broadcast' => async sub ($c) {
     my $body = await $c->req->json_body;
     my $text = $body->{text} // '';
 
-    use PAGI::Simple::PubSub;
-    my $pubsub = PAGI::Simple::PubSub->instance;
-
-    my $count = $pubsub->publish('notifications', $text);
+    my $count = $app->pubsub->publish('notifications', $text);
 
     $c->json({
         success => 1,

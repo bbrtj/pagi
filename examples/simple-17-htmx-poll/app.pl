@@ -16,7 +16,6 @@ use Future::AsyncAwait;
 # - Partial templates with include()
 
 use PAGI::Simple;
-use PAGI::Simple::PubSub;
 use File::Basename qw(dirname);
 use File::Spec;
 
@@ -136,8 +135,7 @@ $app->post('/polls/:id/vote' => async sub ($c) {
         _vote($id, $option);
 
         # Broadcast vote update via SSE
-        my $pubsub = PAGI::Simple::PubSub->instance;
-        $pubsub->publish("poll:$id", "vote");
+        $app->pubsub->publish("poll:$id", "vote");
     }
 
     # Return updated poll card (htmx will swap it in)
@@ -150,8 +148,7 @@ $app->delete('/polls/:id' => sub ($c) {
 
     if (_delete_poll($id)) {
         # Notify any watchers that the poll was deleted
-        my $pubsub = PAGI::Simple::PubSub->instance;
-        $pubsub->publish("poll:$id", { action => 'deleted' });
+        $app->pubsub->publish("poll:$id", { action => 'deleted' });
 
         # Return empty response - htmx will remove the element
         $c->html('');

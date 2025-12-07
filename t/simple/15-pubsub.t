@@ -295,4 +295,30 @@ subtest 'duplicate subscription ignored' => sub {
     is($call_count, 1, 'callback called only once');
 };
 
+# Test 21: $app->pubsub accessor
+subtest 'app pubsub accessor' => sub {
+    PAGI::Simple::PubSub->reset;
+
+    use PAGI::Simple;
+    my $app = PAGI::Simple->new(name => 'Test App');
+
+    # $app->pubsub should return the singleton
+    my $pubsub = $app->pubsub;
+    ok($pubsub, 'app->pubsub returns object');
+    isa_ok($pubsub, 'PAGI::Simple::PubSub');
+
+    # Should be the same singleton
+    my $singleton = PAGI::Simple::PubSub->instance;
+    is($pubsub, $singleton, 'app->pubsub returns the singleton');
+
+    # Should be usable
+    my @received;
+    my $cb = sub ($msg) { push @received, $msg };
+
+    $pubsub->subscribe('app-test', $cb);
+    $app->pubsub->publish('app-test', 'hello from app');
+
+    is(\@received, ['hello from app'], 'can publish via app->pubsub');
+};
+
 done_testing;

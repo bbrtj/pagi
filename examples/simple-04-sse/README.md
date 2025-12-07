@@ -212,21 +212,22 @@ $app->sse('/events/:user' => sub ($sse) {
 });
 ```
 
-### Triggering Notifications
+### Triggering Notifications from HTTP Handlers
 
 ```perl
 $app->post('/trigger' => async sub ($c) {
     my $body = await $c->req->json_body;
     my $text = $body->{text} // '';
 
-    use PAGI::Simple::PubSub;
-    my $pubsub = PAGI::Simple::PubSub->instance;
-
-    $pubsub->publish('notifications', $text);
+    # Use $app->pubsub to broadcast to SSE/WebSocket subscribers
+    $app->pubsub->publish('notifications', $text);
 
     $c->json({ success => 1, published => $text });
 });
 ```
+
+Note: `$app->pubsub` provides access to the application-level PubSub singleton.
+SSE and WebSocket contexts have built-in `publish()` methods for convenience.
 
 ## Key Methods
 

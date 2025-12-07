@@ -613,6 +613,56 @@ sub loop ($self) {
     return $self->{_loop};
 }
 
+=head2 pubsub
+
+    my $pubsub = $app->pubsub;
+    $pubsub->publish('notifications', { message => 'Hello!' });
+
+Returns the PAGI::Simple::PubSub singleton instance for publishing messages
+to SSE and WebSocket subscribers.
+
+B<Why is this on $app and not $c?>
+
+PubSub is an application-level service, not a request-scoped resource. The
+singleton manages all subscriptions across all connections in the process.
+Accessing it via C<< $app->pubsub >> makes this architecture clear.
+
+SSE and WebSocket contexts already have C<< $sse->publish() >> and
+C<< $ws->broadcast() >> for convenience since they're inherently connected
+to the pub/sub system. HTTP handlers use C<< $app->pubsub >> when they need
+to notify real-time subscribers (e.g., broadcasting that a resource was
+created, updated, or deleted).
+
+B<Common patterns:>
+
+    # In an HTTP handler - notify SSE/WebSocket subscribers
+    $app->post('/messages' => async sub ($c) {
+        my $msg = await $c->req->json_body;
+        save_message($msg);
+
+        # Broadcast to all subscribers on the 'chat' channel
+        $app->pubsub->publish('chat', $msg);
+
+        $c->status(201)->json($msg);
+    });
+
+    # In an SSE handler - subscribe uses callback, publish is built-in
+    $app->sse('/events' => sub ($sse) {
+        $sse->subscribe('chat', sub ($msg) {
+            $sse->send_event(event => 'message', data => $msg);
+        });
+    });
+
+See L<PAGI::Simple::PubSub> for the full API including subscribe/unsubscribe,
+channel management, and subscriber counts.
+
+=cut
+
+sub pubsub ($self) {
+    require PAGI::Simple::PubSub;
+    return PAGI::Simple::PubSub->instance;
+}
+
 =head2 to_app
 
     my $pagi_app = $app->to_app;
