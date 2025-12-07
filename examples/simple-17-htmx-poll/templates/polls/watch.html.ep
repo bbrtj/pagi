@@ -16,7 +16,7 @@
 
     <!-- Poll card (updated on votes, replaced on delete) -->
     <div sse-swap="vote">
-        <%= include('polls/_card', poll => $poll, show_vote => 0, show_delete => 0) %>
+        <%= include('polls/_card', poll => $poll, show_vote => 0, show_delete => 0, show_watch => 0) %>
     </div>
 </div>
 

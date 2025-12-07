@@ -191,7 +191,7 @@ $app->sse('/polls/:id/live' => sub ($sse) {
         my $poll = _get_poll($id);
         return unless $poll;
 
-        my $html = $view->render('polls/_card', poll => $poll, show_vote => 0);
+        my $html = $view->render('polls/_card', poll => $poll, show_vote => 0, show_delete => 0, show_watch => 0);
         $sse->send_event(
             event => 'vote',
             data  => $html,
