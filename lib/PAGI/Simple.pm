@@ -71,6 +71,10 @@ API for building web applications with support for:
     Named Routes         URL generation from route names       name(), url_for()
     Mounting             Sub-application composition           mount()
 
+    Views/Templates      Embedded Perl templates               views(), render()
+    Layouts              Nested layout inheritance             extends(), content()
+    Partials             Reusable template fragments           include()
+
     Middleware           Before/after request processing       middleware(), use()
     Hooks                Lifecycle events                      before(), after()
     Error Handlers       Custom error pages                    error()
@@ -163,6 +167,32 @@ Run with: C<pagi-server --port 3000 app.pl>
     $app->sse('/notifications' => sub ($sse) {
         $sse->subscribe('user:notifications');
     });
+
+=head2 Views and Templates
+
+    # Configure views (relative to app file)
+    my $app = PAGI::Simple->new(
+        name  => 'My App',
+        views => 'templates',
+    );
+
+    # Render a template with variables
+    $app->get('/' => sub ($c) {
+        $c->render('index', title => 'Home', items => \@items);
+    });
+
+    # templates/index.html.ep
+    <% extends('layouts/default', title => $v->{title}) %>
+    <ul>
+    <% for my $item (@{$v->{items}}) { %>
+        <li><%= $item %></li>
+    <% } %>
+    </ul>
+
+Templates use embedded Perl syntax. Layouts can be nested (admin layout
+extends base layout). Use C<content_for()> to inject scripts/styles into
+layout slots, and C<include()> for partials. See L<PAGI::Simple::View>
+for full documentation.
 
 =head1 COMPARISON WITH RAW PAGI
 

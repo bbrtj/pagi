@@ -200,3 +200,62 @@ core functionality including views(), render(), is_htmx(), and layout system.
 
 Branch: pagi-simple-view
 Pending: New files and modifications need to be committed
+
+---
+
+# Claude Code Progress - Session 3
+
+## Date: 2025-12-06
+
+## Summary
+
+Completed Step 2 of the PAGI::Simple View layer implementation. All layout features
+now work: content_for blocks, nested layouts, and block() helper.
+
+## Completed Tasks
+
+### 1. Fixed Nested Layouts
+- Modified _render_layout() to recursively apply layouts
+- When a layout calls extends() to another layout, it now properly chains
+- Page -> Admin Layout -> Base Layout all render correctly in sequence
+
+### 2. Tests Added to t/simple/31-views.t
+- Test 13: content_for() block definitions (styles, scripts in layout)
+- Test 14: content_for() accumulates across includes (partials add scripts)
+- Test 15: Nested layouts work correctly (3-level layout chain)
+- Test 16: block() replaces content vs content_for() accumulates
+
+### 3. All Tests Pass
+- 113 tests across 15 test files
+- 16 tests in t/simple/31-views.t specifically
+
+## Files Modified
+
+### Modified Files:
+- lib/PAGI/Simple/View.pm (fixed nested layout recursion in _render_layout)
+- t/simple/31-views.t (added 4 new subtests for Step 2 features)
+- feature_list.json (3 more features now passing: 11 total)
+- claude-progress.txt (this file)
+
+## Feature List Progress
+
+- Total features: ~97
+- Passing: 11 (up from 8)
+- Remaining: 86
+
+Step 2 Features Completed:
+- ✅ Block definitions with block() helper
+- ✅ Nested layouts work correctly
+- ✅ content_for() accumulates across includes
+
+## Next Session Should Focus On
+
+1. **Step 3: htmx Integration** - Wire up htmx helpers (hx_get, hx_post, etc.) to templates
+2. **Step 4: Auto-fragment Detection** - Automatic layout skipping for htmx requests
+3. **Step 5: TO_HTML Protocol** - Object self-rendering
+4. **Step 6: Named Routes** - route() helper with URL generation
+
+## Git Status
+
+Branch: pagi-simple-view
+Changes: Uncommitted modifications to View.pm and test file

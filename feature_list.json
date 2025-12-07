@@ -94,7 +94,7 @@
    {
       "category" : "functional",
       "description" : "Step 2: Block definitions with block() helper",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create layout with <%= content_for('scripts') %>",
          "Step 2: Create child template that extends layout",
@@ -105,7 +105,7 @@
    {
       "category" : "functional",
       "description" : "Step 2: Nested layouts work correctly",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create base layout (layouts/base.html.ep)",
          "Step 2: Create admin layout that extends base",
@@ -117,7 +117,7 @@
    {
       "category" : "functional",
       "description" : "Step 2: content_for() accumulates across includes",
-      "passes" : false,
+      "passes" : true,
       "steps" : [
          "Step 1: Create layout with content_for('scripts') block",
          "Step 2: Create main template that includes two partials",

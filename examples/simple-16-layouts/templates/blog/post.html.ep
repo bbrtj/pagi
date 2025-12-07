@@ -1,0 +1,24 @@
+<% extends('layouts/base', title => $v->{title}) %>
+<% content_for('styles', '<style>
+    .post { background: white; padding: 2rem; border-radius: 8px; }
+    .post-meta { color: #666; margin-bottom: 1rem; }
+    .post-content { line-height: 1.8; }
+</style>') %>
+
+<article class="post">
+    <h1><%= $v->{post}{title} %></h1>
+    <p class="post-meta">By <%= $v->{post}{author} %></p>
+    <div class="post-content">
+        <p><%= $v->{post}{content} %></p>
+    </div>
+</article>
+
+<section style="margin-top: 2rem;">
+    <h2>Comments</h2>
+    <p><em>Each comment partial adds its own JavaScript to content_for('scripts')</em></p>
+    <% for my $comment (@{$v->{comments}}) { %>
+        <%= include('partials/_comment', comment => $comment) %>
+    <% } %>
+</section>
+
+<%= include('partials/_share_buttons') %>

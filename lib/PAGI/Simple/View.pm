@@ -491,8 +491,9 @@ sub _render_layout ($self, $content, %vars) {
     # Store the content block
     $self->{_blocks}{content} = $content;
 
-    # Reset layout to prevent infinite recursion
-    local $self->{_layout} = undef;
+    # Reset layout tracking before rendering (layout may set its own extends)
+    $self->{_layout} = undef;
+    $self->{_layout_vars} = {};
 
     # Get compiled layout template
     my $template = $self->_get_template($layout_name);
@@ -500,7 +501,14 @@ sub _render_layout ($self, $content, %vars) {
     # Merge variables (layout vars override page vars)
     my %render_vars = (%vars, %layout_vars);
 
-    return $template->render(\%render_vars);
+    my $output = $template->render(\%render_vars);
+
+    # If the layout itself called extends(), recurse to render that layout
+    if ($self->{_layout}) {
+        $output = $self->_render_layout($output, %render_vars);
+    }
+
+    return $output;
 }
 
 =head2 context
@@ -610,6 +618,71 @@ Templates can extend layouts:
 
 Variables passed to C<render()> are available in both the page template
 and the layout via the C<$v> object.
+
+=head2 Nested Layouts
+
+Layouts can extend other layouts, enabling composition patterns like
+admin sections with their own chrome:
+
+    <!-- templates/layouts/base.html.ep -->
+    <!DOCTYPE html>
+    <html>
+    <head><title><%= $v->{title} %></title></head>
+    <body class="base"><%= content() %></body>
+    </html>
+
+    <!-- templates/layouts/admin.html.ep -->
+    <% extends('layouts/base', title => $v->{title}) %>
+    <div class="admin-wrapper">
+      <nav>Admin Menu</nav>
+      <%= content() %>
+    </div>
+
+    <!-- templates/admin/dashboard.html.ep -->
+    <% extends('layouts/admin', title => 'Dashboard') %>
+    <h1>Admin Dashboard</h1>
+
+The rendering chain is: dashboard -> admin layout -> base layout.
+Each layout wraps the content from the previous level.
+
+=head2 Named Content Blocks
+
+Use C<content_for()> to inject content into specific slots in layouts:
+
+    <!-- templates/layouts/default.html.ep -->
+    <html>
+    <head>
+      <%= content('styles') %>
+    </head>
+    <body>
+      <%= content() %>
+      <%= content('scripts') %>
+    </body>
+    </html>
+
+    <!-- templates/page.html.ep -->
+    <% extends('layouts/default') %>
+    <% content_for('styles', '<link rel="stylesheet" href="page.css">') %>
+    <% content_for('scripts', '<script src="page.js"></script>') %>
+    <main>Page content here</main>
+
+=head2 Partials and content_for
+
+Partials can contribute to C<content_for()> blocks. When a page includes
+multiple partials, each can add its own scripts or styles:
+
+    <!-- templates/_comment.html.ep -->
+    <% content_for('scripts', '<script src="comment-widget.js"></script>') %>
+    <div class="comment"><%= $v->{text} %></div>
+
+    <!-- templates/post.html.ep -->
+    <% extends('layouts/default') %>
+    <% for my $comment (@{$v->{comments}}) { %>
+      <%= include('_comment', text => $comment) %>
+    <% } %>
+
+All C<content_for()> calls accumulate, so the layout receives scripts
+from every partial that was included.
 
 =head1 TEMPLATE HELPERS
 

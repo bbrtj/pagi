@@ -1,0 +1,33 @@
+<% extends('layouts/admin', title => $v->{title}) %>
+<% content_for('styles', '<style>
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; font-weight: 600; }
+    tr:hover { background: #f8f9fa; }
+    .badge { padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.875rem; }
+    .badge-admin { background: #e74c3c; color: white; }
+    .badge-editor { background: #3498db; color: white; }
+    .badge-user { background: #95a5a6; color: white; }
+</style>') %>
+
+<h1>User Management</h1>
+<p>The admin layout adds its own styles, and this page adds table styles via content_for.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Role</th>
+        </tr>
+    </thead>
+    <tbody>
+        <% for my $user (@{$v->{users}}) { %>
+        <tr>
+            <td><%= $user->{id} %></td>
+            <td><%= $user->{name} %></td>
+            <td><span class="badge badge-<%= lc($user->{role}) %>"><%= $user->{role} %></span></td>
+        </tr>
+        <% } %>
+    </tbody>
+</table>

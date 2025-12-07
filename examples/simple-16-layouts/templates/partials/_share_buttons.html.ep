@@ -1,0 +1,20 @@
+<% content_for('scripts', '<script>
+function shareOn(platform) {
+    console.log("Sharing on " + platform);
+    alert("Share on " + platform + " clicked!");
+}
+</script>') %>
+<% content_for('styles', '<style>
+    .share-buttons { margin-top: 2rem; padding: 1rem; background: #ecf0f1; border-radius: 8px; }
+    .share-buttons button { margin-right: 0.5rem; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; }
+    .share-twitter { background: #1da1f2; color: white; }
+    .share-facebook { background: #4267b2; color: white; }
+    .share-linkedin { background: #0077b5; color: white; }
+</style>') %>
+
+<div class="share-buttons">
+    <strong>Share this post:</strong>
+    <button class="share-twitter" onclick="shareOn('Twitter')">Twitter</button>
+    <button class="share-facebook" onclick="shareOn('Facebook')">Facebook</button>
+    <button class="share-linkedin" onclick="shareOn('LinkedIn')">LinkedIn</button>
+</div>

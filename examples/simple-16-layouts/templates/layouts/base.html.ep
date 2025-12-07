@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><%= $v->{title} // 'PAGI App' %></title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 0;
+        }
+        header nav a {
+            color: white;
+            text-decoration: none;
+            margin-right: 1rem;
+        }
+        header nav a:hover { text-decoration: underline; }
+        main { padding: 2rem 0; min-height: 60vh; }
+        footer {
+            background: #34495e;
+            color: #bdc3c7;
+            padding: 1rem 0;
+            text-align: center;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 { margin-bottom: 1rem; }
+    </style>
+    <%= content('styles') %>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/">Home</a>
+                <a href="/admin">Admin</a>
+                <a href="/blog/1">Blog</a>
+                <a href="/widgets">Widgets</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <%= content() %>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>PAGI::Simple Layouts Demo</p>
+        </div>
+    </footer>
+
+    <%= content('scripts') %>
+</body>
+</html>

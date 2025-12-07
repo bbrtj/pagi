@@ -1,0 +1,7 @@
+<% content_for('scripts', '<script>console.log("Comment by ' . $v->{comment}{author} . ' loaded");</script>') %>
+<% content_for('styles', '<style>.comment { background: #f8f9fa; padding: 1rem; margin: 0.5rem 0; border-radius: 4px; border-left: 3px solid #3498db; }</style>') %>
+
+<div class="comment">
+    <strong><%= $v->{comment}{author} %></strong>
+    <p><%= $v->{comment}{text} %></p>
+</div>

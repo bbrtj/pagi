@@ -1,0 +1,34 @@
+<% extends('layouts/base', title => $v->{title}) %>
+<% content_for('styles', '<style>
+    .admin-layout { display: flex; gap: 2rem; }
+    .admin-sidebar {
+        width: 200px;
+        background: #2c3e50;
+        color: white;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    .admin-sidebar h3 { color: #ecf0f1; border-bottom: 1px solid #34495e; padding-bottom: 0.5rem; }
+    .admin-sidebar ul { list-style: none; margin-top: 1rem; }
+    .admin-sidebar a { color: #bdc3c7; text-decoration: none; display: block; padding: 0.5rem 0; }
+    .admin-sidebar a:hover { color: white; }
+    .admin-content { flex: 1; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+    .stat-card { background: #3498db; color: white; padding: 1rem; border-radius: 8px; text-align: center; }
+    .stat-card .number { font-size: 2rem; font-weight: bold; }
+</style>') %>
+
+<div class="admin-layout">
+    <aside class="admin-sidebar">
+        <h3>Admin Menu</h3>
+        <ul>
+            <li><a href="/admin">Dashboard</a></li>
+            <li><a href="/admin/users">Users</a></li>
+            <li><a href="/admin/posts">Posts</a></li>
+            <li><a href="/admin/settings">Settings</a></li>
+        </ul>
+    </aside>
+    <div class="admin-content">
+        <%= content() %>
+    </div>
+</div>

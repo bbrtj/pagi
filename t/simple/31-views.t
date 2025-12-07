@@ -290,4 +290,206 @@ subtest 'raw() helper bypasses escaping' => sub {
     like($output, qr/<b>bold<\/b>/, 'Raw HTML preserved');
 };
 
+#-------------------------------------------------------------------------
+# Test 9: content_for() block definitions
+#-------------------------------------------------------------------------
+subtest 'content_for() block definitions' => sub {
+    # Create layout with content_for slots
+    open my $fh1, '>', "$tmpdir/templates/layouts/with_scripts.html.ep" or die $!;
+    print $fh1 <<'LAYOUT';
+<!DOCTYPE html>
+<html>
+<head>
+<title><%= $v->{title} // 'App' %></title>
+<%= content('styles') %>
+</head>
+<body>
+<%= content() %>
+<%= content('scripts') %>
+</body>
+</html>
+LAYOUT
+    close $fh1;
+
+    # Create template using content_for
+    open my $fh2, '>', "$tmpdir/templates/with_content_for.html.ep" or die $!;
+    print $fh2 <<'TEMPLATE';
+<% extends('layouts/with_scripts', title => 'Content For Test') %>
+<% content_for('styles', '<link rel="stylesheet" href="app.css">') %>
+<% content_for('scripts', '<script src="app.js"></script>') %>
+<main>
+<h1>Main Content</h1>
+</main>
+TEMPLATE
+    close $fh2;
+
+    my $app = PAGI::Simple->new;
+    $app->views("$tmpdir/templates", { cache => 0 });
+
+    my $output = $app->view->render('with_content_for');
+
+    like($output, qr/<title>Content For Test<\/title>/, 'Title set');
+    like($output, qr/<link rel="stylesheet" href="app\.css">/, 'styles content_for in head');
+    like($output, qr/<script src="app\.js"><\/script>/, 'scripts content_for in body');
+    like($output, qr/<main>.*<h1>Main Content<\/h1>.*<\/main>/s, 'Main content rendered');
+
+    # Verify order: styles before body content, scripts after body content
+    like($output, qr/<head>.*app\.css.*<\/head>/s, 'Styles in head');
+    like($output, qr/<\/main>.*app\.js/s, 'Scripts after main content');
+};
+
+#-------------------------------------------------------------------------
+# Test 10: content_for() accumulates across includes
+#-------------------------------------------------------------------------
+subtest 'content_for() accumulates across includes' => sub {
+    # Create layout
+    open my $fh1, '>', "$tmpdir/templates/layouts/accumulating.html.ep" or die $!;
+    print $fh1 <<'LAYOUT';
+<!DOCTYPE html>
+<html>
+<head><%= content('head') %></head>
+<body>
+<%= content() %>
+<%= content('scripts') %>
+</body>
+</html>
+LAYOUT
+    close $fh1;
+
+    # Create partials that add to content_for
+    open my $fh2, '>', "$tmpdir/templates/_partial_a.html.ep" or die $!;
+    print $fh2 <<'PARTIAL';
+<% content_for('scripts', '<script src="a.js"></script>') %>
+<div>Partial A</div>
+PARTIAL
+    close $fh2;
+
+    open my $fh3, '>', "$tmpdir/templates/_partial_b.html.ep" or die $!;
+    print $fh3 <<'PARTIAL';
+<% content_for('scripts', '<script src="b.js"></script>') %>
+<div>Partial B</div>
+PARTIAL
+    close $fh3;
+
+    # Create main template that includes both partials
+    open my $fh4, '>', "$tmpdir/templates/accumulating_test.html.ep" or die $!;
+    print $fh4 <<'TEMPLATE';
+<% extends('layouts/accumulating') %>
+<% content_for('head', '<meta name="test" content="main">') %>
+<main>
+<%= include('_partial_a') %>
+<%= include('_partial_b') %>
+</main>
+TEMPLATE
+    close $fh4;
+
+    my $app = PAGI::Simple->new;
+    $app->views("$tmpdir/templates", { cache => 0 });
+
+    my $output = $app->view->render('accumulating_test');
+
+    # Check all content_for accumulated
+    like($output, qr/<meta name="test" content="main">/, 'Main template head content');
+    like($output, qr/<script src="a\.js"><\/script>/, 'Partial A script');
+    like($output, qr/<script src="b\.js"><\/script>/, 'Partial B script');
+    like($output, qr/Partial A/, 'Partial A content');
+    like($output, qr/Partial B/, 'Partial B content');
+
+    # Verify both scripts are in the output (accumulated)
+    like($output, qr/a\.js.*b\.js/s, 'Scripts accumulated in order');
+};
+
+#-------------------------------------------------------------------------
+# Test 11: Nested layouts
+#-------------------------------------------------------------------------
+subtest 'Nested layouts work correctly' => sub {
+    # Create base layout
+    open my $fh1, '>', "$tmpdir/templates/layouts/base.html.ep" or die $!;
+    print $fh1 <<'LAYOUT';
+<!DOCTYPE html>
+<html>
+<head><title><%= $v->{title} // 'Base' %></title></head>
+<body class="base">
+<%= content() %>
+</body>
+</html>
+LAYOUT
+    close $fh1;
+
+    # Create admin layout that extends base
+    open my $fh2, '>', "$tmpdir/templates/layouts/admin.html.ep" or die $!;
+    print $fh2 <<'LAYOUT';
+<% extends('layouts/base', title => $v->{title} // 'Admin') %>
+<div class="admin-wrapper">
+<nav>Admin Nav</nav>
+<%= content() %>
+</div>
+LAYOUT
+    close $fh2;
+
+    # Create page that extends admin layout
+    open my $fh3, '>', "$tmpdir/templates/admin_page.html.ep" or die $!;
+    print $fh3 <<'TEMPLATE';
+<% extends('layouts/admin', title => 'Dashboard') %>
+<section class="dashboard">
+<h1>Admin Dashboard</h1>
+</section>
+TEMPLATE
+    close $fh3;
+
+    my $app = PAGI::Simple->new;
+    $app->views("$tmpdir/templates", { cache => 0 });
+
+    my $output = $app->view->render('admin_page');
+
+    # Check all layout levels rendered
+    like($output, qr/<!DOCTYPE html>/, 'Base layout doctype');
+    like($output, qr/<body class="base">/, 'Base layout body class');
+    like($output, qr/<title>Dashboard<\/title>/, 'Title from innermost template');
+    like($output, qr/<div class="admin-wrapper">/, 'Admin layout wrapper');
+    like($output, qr/<nav>Admin Nav<\/nav>/, 'Admin nav');
+    like($output, qr/<section class="dashboard">/, 'Page content section');
+    like($output, qr/<h1>Admin Dashboard<\/h1>/, 'Page content heading');
+
+    # Verify nesting order (inside out)
+    like($output, qr/<body.*<div class="admin-wrapper">.*<section class="dashboard">/s, 'Correct nesting order');
+};
+
+#-------------------------------------------------------------------------
+# Test 12: block() helper (replaces vs accumulates)
+#-------------------------------------------------------------------------
+subtest 'block() replaces content, content_for() accumulates' => sub {
+    # Create layout with block slot
+    open my $fh1, '>', "$tmpdir/templates/layouts/block_test.html.ep" or die $!;
+    print $fh1 <<'LAYOUT';
+<html>
+<body>
+<%= content('sidebar') %>
+<%= content() %>
+</body>
+</html>
+LAYOUT
+    close $fh1;
+
+    # Create template that uses both block and content_for
+    open my $fh2, '>', "$tmpdir/templates/block_test.html.ep" or die $!;
+    print $fh2 <<'TEMPLATE';
+<% extends('layouts/block_test') %>
+<% block('sidebar', '<nav>First</nav>') %>
+<% block('sidebar', '<nav>Second</nav>') %>
+<main>Content</main>
+TEMPLATE
+    close $fh2;
+
+    my $app = PAGI::Simple->new;
+    $app->views("$tmpdir/templates", { cache => 0 });
+
+    my $output = $app->view->render('block_test');
+
+    # block() should REPLACE, so only 'Second' should be there
+    unlike($output, qr/<nav>First<\/nav>/, 'First block replaced');
+    like($output, qr/<nav>Second<\/nav>/, 'Second block present (replaced first)');
+    like($output, qr/<main>Content<\/main>/, 'Main content rendered');
+};
+
 done_testing;

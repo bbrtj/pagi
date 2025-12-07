@@ -1,0 +1,29 @@
+<% extends('layouts/admin', title => $v->{title}) %>
+
+<h1>Dashboard</h1>
+<p>This page uses nested layouts: dashboard.html.ep -> layouts/admin.html.ep -> layouts/base.html.ep</p>
+
+<h2>Statistics</h2>
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="number"><%= $v->{stats}{users} %></div>
+        <div>Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="number"><%= $v->{stats}{posts} %></div>
+        <div>Posts</div>
+    </div>
+    <div class="stat-card">
+        <div class="number"><%= $v->{stats}{visits} %></div>
+        <div>Visits</div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+    <h3>How Nested Layouts Work</h3>
+    <ol>
+        <li>This template calls <code>extends('layouts/admin')</code></li>
+        <li>The admin layout calls <code>extends('layouts/base')</code></li>
+        <li>The view system recursively renders: content -> admin wrapper -> base HTML</li>
+    </ol>
+</div>

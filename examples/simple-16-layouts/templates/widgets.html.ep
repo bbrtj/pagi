@@ -1,0 +1,53 @@
+<% extends('layouts/base', title => $v->{title}) %>
+<% content_for('styles', '<style>
+    .demo-box { background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; }
+    .demo-box h3 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
+    code { background: #f8f9fa; padding: 0.2rem 0.5rem; border-radius: 4px; font-family: monospace; }
+    pre { background: #2c3e50; color: #ecf0f1; padding: 1rem; border-radius: 4px; overflow-x: auto; }
+    .result { background: #e8f6ff; padding: 1rem; border-radius: 4px; margin-top: 1rem; border-left: 4px solid #3498db; }
+</style>') %>
+
+<h1>Widget Demo: block() vs content_for()</h1>
+
+<div class="demo-box">
+    <h3>content_for() - Accumulates Content</h3>
+    <p>Multiple calls to <code>content_for('name', ...)</code> will <strong>append</strong> content:</p>
+    <pre>&lt;% content_for('scripts', '&lt;script src="a.js"&gt;&lt;/script&gt;') %&gt;
+&lt;% content_for('scripts', '&lt;script src="b.js"&gt;&lt;/script&gt;') %&gt;
+
+&lt;!-- In layout: --&gt;
+&lt;%= content('scripts') %&gt;
+
+&lt;!-- Output: --&gt;
+&lt;script src="a.js"&gt;&lt;/script&gt;
+&lt;script src="b.js"&gt;&lt;/script&gt;</pre>
+    <div class="result">
+        <strong>Use case:</strong> Partials adding their own CSS/JS dependencies
+    </div>
+</div>
+
+<div class="demo-box">
+    <h3>block() - Replaces Content</h3>
+    <p>Multiple calls to <code>block('name', ...)</code> will <strong>replace</strong> previous content:</p>
+    <pre>&lt;% block('sidebar', '&lt;nav&gt;First&lt;/nav&gt;') %&gt;
+&lt;% block('sidebar', '&lt;nav&gt;Second&lt;/nav&gt;') %&gt;
+
+&lt;!-- In layout: --&gt;
+&lt;%= content('sidebar') %&gt;
+
+&lt;!-- Output: --&gt;
+&lt;nav&gt;Second&lt;/nav&gt;</pre>
+    <div class="result">
+        <strong>Use case:</strong> Child templates overriding parent's default content
+    </div>
+</div>
+
+<div class="demo-box">
+    <h3>Live Demo</h3>
+    <p>Open your browser's Developer Tools (F12) and check the Console tab. You'll see messages from scripts added by partials on the <a href="/blog/1">Blog Post</a> page.</p>
+
+    <% content_for('scripts', '<script>console.log("First script from widgets page");</script>') %>
+    <% content_for('scripts', '<script>console.log("Second script from widgets page");</script>') %>
+
+    <p>This page adds two console.log statements via content_for - both will appear in the output!</p>
+</div>

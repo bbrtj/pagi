@@ -1,0 +1,29 @@
+<% extends('layouts/base', title => $v->{title}) %>
+<% content_for('styles', '<style>
+    .hero { text-align: center; padding: 3rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; margin-bottom: 2rem; }
+    .hero h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
+    .feature { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .feature h3 { color: #667eea; }
+</style>') %>
+<% content_for('scripts', '<script>console.log("Home page loaded!");</script>') %>
+
+<div class="hero">
+    <h1><%= $v->{message} %></h1>
+    <p>This example demonstrates content_for, nested layouts, and block helpers.</p>
+</div>
+
+<div class="features">
+    <div class="feature">
+        <h3>content_for()</h3>
+        <p>Inject CSS and JavaScript into specific layout slots. Content accumulates across partials.</p>
+    </div>
+    <div class="feature">
+        <h3>Nested Layouts</h3>
+        <p>Layouts can extend other layouts. See the Admin section for a page -> admin -> base chain.</p>
+    </div>
+    <div class="feature">
+        <h3>block() Helper</h3>
+        <p>Unlike content_for(), block() replaces content instead of appending.</p>
+    </div>
+</div>
