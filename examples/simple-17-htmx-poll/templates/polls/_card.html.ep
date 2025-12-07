@@ -1,8 +1,9 @@
 <%
 my $poll = $v->{poll};
 my $id = $poll->{id};
+my $options = $poll->{options};
 my $total = 0;
-$total += $_ for values %{$poll->{options}};
+$total += $_ for values %$options;
 my $show_vote = $v->{show_vote} // 1;
 my $show_delete = $v->{show_delete} // 1;
 %>
@@ -20,8 +21,8 @@ my $show_delete = $v->{show_delete} // 1;
         <% } %>
     </div>
 
-    <% for my $opt (sort keys %{$poll->{options}}) { %>
-        <% my $votes = $poll->{options}{$opt}; %>
+    <% for my $opt (sort keys %$options) { %>
+        <% my $votes = $options->{$opt}; %>
         <% my $pct = $total > 0 ? int(($votes / $total) * 100) : 0; %>
         <div class="option-bar">
             <% if ($show_vote) { %>
