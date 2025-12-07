@@ -1,0 +1,25 @@
+<%
+    my $index = $v->{index};
+    my $value = $v->{value} // '';
+    my $count = $v->{count} // 2;
+    my $show_remove = $count > 2;
+%>
+<div class="option-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+    <input type="text"
+           name="options[]"
+           value="<%= $value %>"
+           placeholder="Option <%= $index + 1 %>"
+           style="flex: 1;">
+    <% if ($show_remove) { %>
+    <button type="button"
+            class="btn btn-danger"
+            style="padding: 8px 12px; min-width: auto;"
+            <%= hx_post('/polls/options/remove',
+                        target => '#options-container',
+                        swap => 'innerHTML') %>
+            hx-include="[name='options[]']"
+            hx-vals='{"remove_index": <%= $index %>}'>
+        &times;
+    </button>
+    <% } %>
+</div>

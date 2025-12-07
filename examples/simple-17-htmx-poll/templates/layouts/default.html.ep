@@ -20,6 +20,8 @@
         .btn-primary:hover { background: #1d4ed8; }
         .btn-danger { background: #dc2626; color: white; }
         .btn-danger:hover { background: #b91c1c; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-secondary:hover { background: #4b5563; }
         .btn-sm { padding: 4px 8px; font-size: 0.8rem; }
         input, textarea { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 8px; }
         .option-bar { display: flex; align-items: center; margin: 8px 0; }

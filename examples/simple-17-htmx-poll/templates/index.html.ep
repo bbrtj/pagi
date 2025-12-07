@@ -3,14 +3,25 @@
 <!-- Create Poll Form -->
 <div class="card" style="margin-bottom: 24px;">
     <h2>Create New Poll</h2>
-    <form <%= hx_post('/polls/create',
+    <form id="create-poll-form"
+          <%= hx_post('/polls/create',
                       target => '#polls',
                       swap => 'afterbegin') %>
-          onsubmit="setTimeout(() => this.reset(), 100)">
-        <input type="text" name="question" placeholder="Enter your question..." required>
-        <input type="text" name="options" placeholder="Options (comma-separated, e.g.: Yes, No, Maybe)" required>
-        <button type="submit" class="btn btn-primary">Create Poll</button>
+          hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('options-container').innerHTML = document.getElementById('options-template').innerHTML; }">
+        <input type="text" name="question" placeholder="Enter your question..." required style="margin-bottom: 12px;">
+
+        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Poll Options:</label>
+        <div id="options-container">
+            <%= include('polls/_options_fields', values => ['', '']) %>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 12px;">Create Poll</button>
     </form>
+
+    <!-- Hidden template for resetting options -->
+    <template id="options-template">
+        <%= include('polls/_options_fields', values => ['', '']) %>
+    </template>
 </div>
 
 <h2 style="margin-bottom: 16px;">Active Polls</h2>

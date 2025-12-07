@@ -91,22 +91,51 @@ $app->get('/polls/:id/watch' => sub ($c) {
     );
 })->name('watch_poll');
 
+# Add option field (htmx endpoint)
+$app->post('/polls/options/add' => async sub ($c) {
+    my $params = await $c->req->body_params;
+    my $values = $params->get_all('options[]');
+
+    # Add empty option (max 6)
+    if (@$values < 6) {
+        push @$values, '';
+    }
+
+    $c->render('polls/_options_fields', values => $values);
+});
+
+# Remove option field (htmx endpoint)
+$app->post('/polls/options/remove' => async sub ($c) {
+    my $params = await $c->req->body_params;
+    my $values = $params->get_all('options[]');
+    my $remove_index = $params->{remove_index} // -1;
+
+    # Remove the specified index (min 2 options)
+    if (@$values > 2 && $remove_index >= 0 && $remove_index < @$values) {
+        splice(@$values, $remove_index, 1);
+    }
+
+    $c->render('polls/_options_fields', values => $values);
+});
+
 # Create a new poll
 $app->post('/polls/create' => async sub ($c) {
     my $params = await $c->req->body_params;
     my $question = $params->{question} // '';
-    my $options_str = $params->{options} // '';
 
-    # Parse comma-separated options
-    my @options = map { s/^\s+|\s+$//gr } split /,/, $options_str;
+    # Get options from array-style params
+    my $options = $params->get_all('options[]');
+
+    # Filter empty values and trim whitespace
+    my @options = map { s/^\s+|\s+$//gr } @$options;
     @options = grep { length } @options;
 
-    if ($question && @options >= 2) {
+    if ($question && @options >= 2 && @options <= 6) {
         my $poll = _create_poll($question, \@options);
         # Return just the new poll card
         $c->render('polls/_card', poll => $poll);
     } else {
-        $c->status(400)->html('<div class="card"><p style="color:#dc2626">Need a question and at least 2 options</p></div>');
+        $c->status(400)->html('<div class="card"><p style="color:#dc2626">Need a question and 2-6 options</p></div>');
     }
 });
 
