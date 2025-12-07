@@ -762,7 +762,8 @@ async sub _handle_http ($self, $scope, $receive, $send) {
                 }
             }
             else {
-                # Handler threw a real error
+                # Handler threw a real error - log it!
+                warn "PAGI application error: $err\n";
                 unless ($c->response_started) {
                     await $self->_send_error($c, 500, $err);
                 }
