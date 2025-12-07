@@ -663,6 +663,129 @@ sub pubsub ($self) {
     return PAGI::Simple::PubSub->instance;
 }
 
+=head2 home
+
+    my $home = $app->home;
+
+Returns the home directory of the application as a string. This is the
+directory containing the file that created the PAGI::Simple app (typically
+your C<app.pl> or main application script).
+
+Useful for locating app-specific files and directories:
+
+    my $config_file = $app->home . '/config.yml';
+    my $data_dir = $app->home . '/data';
+
+    # Mount app's own static files
+    $app->static('/assets' => $app->home . '/public');
+
+Note: This is different from C<share_dir()> which locates PAGI's bundled
+assets. Use C<home> for your application's files, use C<share_dir> for
+PAGI's bundled libraries like htmx.
+
+=cut
+
+sub home ($self) {
+    return $self->{_caller_dir};
+}
+
+=head2 share_dir
+
+    my $htmx_dir = $app->share_dir('htmx');
+
+Returns the path to a PAGI bundled asset directory. Works both in development
+(from git checkout) and when installed via CPAN.
+
+Available bundled assets:
+
+=over 4
+
+=item * C<htmx> - htmx library and extensions (htmx.min.js, ext/sse.js, ext/ws.js)
+
+=back
+
+This method is useful if you need the raw path. For simply serving bundled
+assets as static files, use C<share()> instead which is more convenient.
+
+    # Get the path (for custom use)
+    my $path = $app->share_dir('htmx');
+
+    # Or use share() for static mounting (preferred)
+    $app->share('/static/htmx' => 'htmx');
+
+=cut
+
+sub share_dir ($self, $name) {
+    require File::Basename;
+    require File::Spec;
+    require Cwd;
+
+    # First try development location (share/ relative to lib/PAGI/)
+    my $lib_dir = File::Basename::dirname(__FILE__);
+    my $dev_dir = File::Spec->catdir($lib_dir, '..', '..', 'share', $name);
+
+    if (-d $dev_dir) {
+        # Resolve to absolute path without .. components
+        return Cwd::abs_path($dev_dir);
+    }
+
+    # Fall back to installed location via File::ShareDir::Dist
+    my $dist_dir = eval {
+        require File::ShareDir::Dist;
+        my $share = File::ShareDir::Dist::dist_share('PAGI-Server');
+        $share ? File::Spec->catdir($share, $name) : undef;
+    };
+
+    if ($dist_dir && -d $dist_dir) {
+        return Cwd::abs_path($dist_dir);
+    }
+
+    die "PAGI share directory '$name' not found";
+}
+
+=head2 share
+
+    $app->share('/static/htmx' => 'htmx');
+
+Mount PAGI's bundled assets as static files. This is a convenience method
+that combines C<share_dir()> and C<static()>.
+
+    # Mount htmx at /static/htmx
+    $app->share('/static/htmx' => 'htmx');
+
+    # Equivalent to:
+    $app->static('/static/htmx' => $app->share_dir('htmx'));
+
+Returns C<$app> for chaining:
+
+    $app->share('/static/htmx' => 'htmx')
+        ->get('/' => sub ($c) { ... });
+
+B<Available bundled assets:>
+
+=over 4
+
+=item * C<htmx> - htmx library (2.0.8) with SSE and WebSocket extensions
+
+=back
+
+B<Example with htmx helpers:>
+
+    my $app = PAGI::Simple->new(name => 'My App', views => 'templates');
+    $app->share('/static/htmx' => 'htmx');
+
+    # In templates, use the htmx() helper which references /static/htmx/
+    # <%= htmx() %>
+    # <%= htmx_sse() %>
+
+=cut
+
+sub share ($self, $prefix, $name) {
+    my $dir = $self->share_dir($name);
+    $self->static($prefix => $dir);
+    return $self;
+}
+
 =head2 to_app
 
     my $pagi_app = $app->to_app;

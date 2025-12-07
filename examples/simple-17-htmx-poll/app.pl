@@ -16,8 +16,6 @@ use Future::AsyncAwait;
 # - Partial templates with include()
 
 use PAGI::Simple;
-use File::Basename qw(dirname);
-use File::Spec;
 
 # In-memory poll storage
 my $next_id = 1;
@@ -60,17 +58,13 @@ sub _delete_poll ($id) {
 _create_poll('What is your favorite programming language?', ['Perl', 'Python', 'JavaScript', 'Rust']);
 _create_poll('Best web framework approach?', ['Full-stack', 'Micro-framework', 'Static + API']);
 
-# Find the share/htmx directory (relative to project root)
-my $project_root = File::Spec->catdir(dirname(__FILE__), '..', '..');
-my $htmx_dir = File::Spec->catdir($project_root, 'share', 'htmx');
-
 my $app = PAGI::Simple->new(
     name  => 'Live Poll',
     views => 'templates',
 );
 
-# Serve htmx static files
-$app->static('/static/htmx' => $htmx_dir);
+# Mount PAGI's bundled htmx library
+$app->share('/static/htmx' => 'htmx');
 
 # ============================================================================
 # Routes
