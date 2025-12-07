@@ -367,4 +367,132 @@ subtest 'mixed websocket and sse on same channel' => sub {
     is($sse_receives[0]{data}, 'Hello all!', 'sse got correct message');
 };
 
+# Test 21: Subscribe with custom callback
+subtest 'subscribe with custom callback' => sub {
+    PAGI::Simple::PubSub->reset;
+    my ($sse, $sent) = create_mock_sse();
+
+    my @callback_received;
+    my $result = $sse->subscribe('channel:custom', sub ($msg) {
+        push @callback_received, $msg;
+        # Custom callback sends event with custom event type
+        $sse->send_event(
+            event => 'custom-event',
+            data  => { processed => $msg },
+        );
+    });
+
+    is($result, $sse, 'subscribe with callback returns $sse for chaining');
+    ok($sse->in_channel('channel:custom'), 'is in channel after subscribe with callback');
+
+    # Publish a message
+    my $pubsub = PAGI::Simple::PubSub->instance;
+    $pubsub->publish('channel:custom', 'test-message');
+
+    # Verify callback was called
+    is(\@callback_received, ['test-message'], 'callback received the message');
+
+    # Verify custom event was sent
+    my @custom_events = grep { $_->{type} eq 'sse.send' && $_->{event} && $_->{event} eq 'custom-event' } @$sent;
+    is(scalar @custom_events, 1, 'custom event was sent');
+    like($custom_events[0]{data}, qr/processed/, 'custom event data contains processed message');
+};
+
+# Test 22: Custom callback with unsubscribe works correctly
+subtest 'custom callback unsubscribe works' => sub {
+    PAGI::Simple::PubSub->reset;
+    my ($sse, $sent) = create_mock_sse();
+
+    my @callback_received;
+    $sse->subscribe('channel:custom', sub ($msg) {
+        push @callback_received, $msg;
+    });
+
+    my $pubsub = PAGI::Simple::PubSub->instance;
+
+    # First publish should be received
+    $pubsub->publish('channel:custom', 'message-1');
+    is(scalar @callback_received, 1, 'callback received first message');
+
+    # Unsubscribe
+    $sse->unsubscribe('channel:custom');
+    ok(!$sse->in_channel('channel:custom'), 'no longer in channel');
+    is($pubsub->subscribers('channel:custom'), 0, 'no subscribers remain');
+
+    # Second publish should NOT be received
+    $pubsub->publish('channel:custom', 'message-2');
+    is(scalar @callback_received, 1, 'callback did not receive message after unsubscribe');
+};
+
+# Test 23: Custom callback with unsubscribe_all works correctly
+subtest 'custom callback unsubscribe_all works' => sub {
+    PAGI::Simple::PubSub->reset;
+    my ($sse, $sent) = create_mock_sse();
+
+    my @cb1_received;
+    my @cb2_received;
+
+    $sse->subscribe('channel:a', sub ($msg) { push @cb1_received, $msg; });
+    $sse->subscribe('channel:b', sub ($msg) { push @cb2_received, $msg; });
+
+    my $pubsub = PAGI::Simple::PubSub->instance;
+    is($pubsub->subscribers('channel:a'), 1, 'channel:a has subscriber');
+    is($pubsub->subscribers('channel:b'), 1, 'channel:b has subscriber');
+
+    # Unsubscribe all
+    $sse->unsubscribe_all;
+
+    # Both channels should be empty
+    is($pubsub->subscribers('channel:a'), 0, 'channel:a empty after unsubscribe_all');
+    is($pubsub->subscribers('channel:b'), 0, 'channel:b empty after unsubscribe_all');
+
+    # Messages should not be received
+    $pubsub->publish('channel:a', 'msg-a');
+    $pubsub->publish('channel:b', 'msg-b');
+    is(scalar @cb1_received, 0, 'cb1 did not receive after unsubscribe_all');
+    is(scalar @cb2_received, 0, 'cb2 did not receive after unsubscribe_all');
+};
+
+# Test 24: Mix of default and custom callbacks
+subtest 'mix of default and custom callbacks' => sub {
+    PAGI::Simple::PubSub->reset;
+    my ($sse, $sent) = create_mock_sse();
+
+    my @custom_received;
+
+    # Subscribe to one channel with default behavior
+    $sse->subscribe('channel:default');
+
+    # Subscribe to another with custom callback
+    $sse->subscribe('channel:custom', sub ($msg) {
+        push @custom_received, $msg;
+        $sse->send_event(event => 'custom', data => "Got: $msg");
+    });
+
+    my $pubsub = PAGI::Simple::PubSub->instance;
+
+    # Publish to default channel - should auto-send as SSE
+    $pubsub->publish('channel:default', 'default-message');
+
+    # Publish to custom channel - should trigger callback
+    $pubsub->publish('channel:custom', 'custom-message');
+
+    # Check default channel sent simple SSE event
+    my @default_events = grep {
+        $_->{type} eq 'sse.send' &&
+        $_->{data} eq 'default-message'
+    } @$sent;
+    is(scalar @default_events, 1, 'default channel sent SSE event');
+    ok(!$default_events[0]{event}, 'default channel event has no event type');
+
+    # Check custom channel used callback
+    is(\@custom_received, ['custom-message'], 'custom callback received message');
+    my @custom_events = grep {
+        $_->{type} eq 'sse.send' &&
+        $_->{event} && $_->{event} eq 'custom'
+    } @$sent;
+    is(scalar @custom_events, 1, 'custom callback sent SSE event with type');
+    is($custom_events[0]{data}, 'Got: custom-message', 'custom event has transformed data');
+};
+
 done_testing;

@@ -517,19 +517,40 @@ sub is_closed ($self) {
 
     $sse->subscribe('news:breaking');
 
+    # With a custom callback for message handling
+    $sse->subscribe('updates', sub ($message) {
+        $sse->send_event(
+            event => 'update',
+            data  => $message,
+            id    => $next_id++,
+        );
+    });
+
 Subscribe to a channel. Messages published to this channel will be sent
 to this connection as SSE events.
+
+If a callback is provided, it will be called with each message received
+on the channel. The callback receives the message as its argument and is
+responsible for sending any SSE events.
+
+If no callback is provided, messages are automatically sent as SSE events
+with just the C<data> field set.
 
 Returns $self for chaining.
 
 =cut
 
-sub subscribe ($self, $channel) {
+sub subscribe ($self, $channel, $callback=undef) {
     return $self if $self->{_channels}{$channel};  # Already subscribed
 
+    # Use provided callback or default behavior
+    my $cb = $callback // $self->{_pubsub_cb};
+
     my $pubsub = PAGI::Simple::PubSub->instance;
-    $pubsub->subscribe($channel, $self->{_pubsub_cb});
-    $self->{_channels}{$channel} = 1;
+    $pubsub->subscribe($channel, $cb);
+
+    # Store the callback for proper unsubscribe
+    $self->{_channels}{$channel} = $cb;
 
     return $self;
 }
@@ -548,7 +569,8 @@ sub unsubscribe ($self, $channel) {
     return $self unless $self->{_channels}{$channel};  # Not subscribed
 
     my $pubsub = PAGI::Simple::PubSub->instance;
-    $pubsub->unsubscribe($channel, $self->{_pubsub_cb});
+    # Use the stored callback (which may be custom or the default)
+    $pubsub->unsubscribe($channel, $self->{_channels}{$channel});
     delete $self->{_channels}{$channel};
 
     return $self;
@@ -568,7 +590,8 @@ sub unsubscribe_all ($self) {
     my $pubsub = PAGI::Simple::PubSub->instance;
 
     for my $channel (keys %{$self->{_channels}}) {
-        $pubsub->unsubscribe($channel, $self->{_pubsub_cb});
+        # Use the stored callback (which may be custom or the default)
+        $pubsub->unsubscribe($channel, $self->{_channels}{$channel});
     }
     $self->{_channels} = {};
 
@@ -630,16 +653,16 @@ sub publish_others ($self, $channel, $message) {
     my $pubsub = PAGI::Simple::PubSub->instance;
 
     # Temporarily unsubscribe, publish, then resubscribe
-    my $was_subscribed = $self->{_channels}{$channel};
+    my $stored_cb = $self->{_channels}{$channel};
 
-    if ($was_subscribed) {
-        $pubsub->unsubscribe($channel, $self->{_pubsub_cb});
+    if ($stored_cb) {
+        $pubsub->unsubscribe($channel, $stored_cb);
     }
 
     my $count = $pubsub->publish($channel, $message);
 
-    if ($was_subscribed) {
-        $pubsub->subscribe($channel, $self->{_pubsub_cb});
+    if ($stored_cb) {
+        $pubsub->subscribe($channel, $stored_cb);
     }
 
     return $count;
