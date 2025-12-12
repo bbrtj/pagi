@@ -81,6 +81,36 @@ sub count ($self) {
     return scalar keys %orders;
 }
 
+# Build an order from data without saving (for form re-rendering on validation failure)
+sub build ($self, $data = {}) {
+    my $order = MyApp::Model::Order->new(
+        customer_name  => $data->{customer_name} // '',
+        customer_email => $data->{customer_email} // '',
+        notes          => $data->{notes} // '',
+    );
+    $self->_add_line_items($order, $data->{line_items});
+    return $order;
+}
+
+# Create a new blank order (for new order forms)
+sub new_order ($self) {
+    my $order = MyApp::Model::Order->new;
+    $order->add_line_item();  # Start with one empty line item
+    return $order;
+}
+
+# Create a new blank line item (for htmx partials)
+sub new_line_item ($self) {
+    return MyApp::Model::LineItem->new;
+}
+
+# Validate a single field (for inline validation)
+sub validate_field ($self, $field, $value) {
+    my $order = MyApp::Model::Order->new($field => $value);
+    $order->validate;
+    return $order->errors->messages_for($field);
+}
+
 # =============================================================================
 # Private helpers
 # =============================================================================

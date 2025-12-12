@@ -23,8 +23,6 @@ use experimental 'signatures';
 use Future::AsyncAwait;
 
 use PAGI::Simple;
-use MyApp::Model::Order;
-use MyApp::Model::LineItem;
 
 my $app = PAGI::Simple->new(
     name      => 'Valiant Forms Demo',
@@ -52,14 +50,14 @@ $app->get('/' => sub ($c) {
 
 # New order form
 $app->get('/orders/new' => sub ($c) {
-    my $order = MyApp::Model::Order->new;
-    # Start with one empty line item
-    $order->add_line_item();
+    my $order = $c->service('Order')->new_order;
     $c->render('orders/new', order => $order);
 });
 
 # Create order
 $app->post('/orders' => async sub ($c) {
+    my $orders = $c->service('Order');
+
     # Use structured params for Rails-style strong parameters
     my $data = (await $c->structured_body)
         ->namespace('my_app_model_order')
@@ -70,7 +68,7 @@ $app->post('/orders' => async sub ($c) {
         ->skip('_destroy')
         ->to_hash;
 
-    my $order = $c->service('Order')->create($data);
+    my $order = $orders->create($data);
 
     if ($order) {
         # htmx request - return success message
@@ -85,16 +83,8 @@ $app->post('/orders' => async sub ($c) {
             $c->redirect('/');
         }
     } else {
-        # Validation failed - recreate order for form re-render
-        my $invalid_order = MyApp::Model::Order->new(
-            customer_name  => $data->{customer_name} // '',
-            customer_email => $data->{customer_email} // '',
-            notes          => $data->{notes} // '',
-        );
-        for my $item_data (@{$data->{line_items} // []}) {
-            next unless $item_data && keys %$item_data;
-            $invalid_order->add_line_item(%$item_data);
-        }
+        # Validation failed - build order for form re-render
+        my $invalid_order = $orders->build($data);
         $invalid_order->validate;
 
         # Re-render form with errors
@@ -109,7 +99,8 @@ $app->post('/orders' => async sub ($c) {
 # Edit order form
 $app->get('/orders/:id/edit' => sub ($c) {
     my $id = $c->path_params->{id};
-    my $order = $c->service('Order')->find($id);
+    my $orders = $c->service('Order');
+    my $order = $orders->find($id);
 
     unless ($order) {
         $c->status(404);
@@ -207,7 +198,7 @@ $app->delete('/orders/:id' => sub ($c) {
 # Add a new line item row (htmx partial)
 $app->get('/orders/line_item' => sub ($c) {
     my $index = $c->req->query->get('index') // 0;
-    my $item = MyApp::Model::LineItem->new;
+    my $item = $c->service('Order')->new_line_item;
     $c->render('orders/_line_item_fields', item => $item, index => $index);
 });
 
@@ -219,10 +210,7 @@ $app->post('/validate/order/:field' => async sub ($c) {
     my $prefix = 'my_app_model_order';
     my $value = $params->get("$prefix.$field") // '';
 
-    my $order = MyApp::Model::Order->new($field => $value);
-    $order->validate;
-
-    my @errors = $order->errors->messages_for($field);
+    my @errors = $c->service('Order')->validate_field($field, $value);
     if (@errors) {
         $c->html(qq{<div class="invalid-feedback d-block">@{[join(', ', @errors)]}</div>});
     } else {
