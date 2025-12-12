@@ -25,16 +25,13 @@ use PAGI::Simple;
 my $app = PAGI::Simple->new(
     name      => 'Valiant Forms Demo',
     namespace => 'MyApp',
+    share     => 'htmx',
+    views     => {
+        directory => './templates',
+        roles     => ['PAGI::Simple::View::Role::Valiant'],
+        preamble  => 'use experimental "signatures";',
+    },
 );
-
-# Configure views with Valiant role and signatures
-$app->views('./templates', {
-    roles    => ['PAGI::Simple::View::Role::Valiant'],
-    preamble => 'use experimental "signatures";',
-});
-
-# Share htmx for script tags
-$app->share('htmx');
 
 # -----------------------------------------------------------------------------
 # Routes
