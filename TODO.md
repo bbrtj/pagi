@@ -7,14 +7,32 @@
 - More logging levels and control (like Apache)
 - Run compliance tests: HTTP/1.1, WebSocket, TLS, SSE
 - UTF-8 testing for text, HTML, JSON
+- middleware for handling Reverse proxy / reverse proxy path
+- Verify no memory leaks in PAGI::Server and PAGI::Simple
 
 ## PAGI::Simple
 
-- Mount sub-applications under routes (like Mojolicious, Web::Simple)
 - Static file serving: pass-through trick for reverse proxy (like Plack)
-- Models layer (like Catalyst)
-- Template rendering system
-- Form validation helpers
+- CSRF protection middleware/helper for Valiant form integration
+  - Valiant::HTML::Util::Form uses context to detect Catalyst CSRF plugin
+  - PAGI::Simple needs its own CSRF token generation/validation mechanism
+  - Consider: middleware that sets token in session, helper to embed in forms
+- Strong parameters (like Rails) for form param handling
+  - **In Progress**: See STRUCTUREDPLAN.md for implementation plan
+  - Whitelist allowed params per action
+  - Auto-filter nested params (e.g., `permit(:customer_name, :email, line_items: [:product, :quantity])`)
+  - Integrate with Valiant's namespaced form fields (`my_app_model_order.*`)
+
+## Mount Enhancements (Future)
+
+- **404 pass-through**: Option to try parent routes if mounted app returns 404
+  - `$app->mount('/api' => $sub_app, { pass_through => 1 })`
+  - Use case: fallback routes in parent app
+
+- **Shared state via $scope**: Allow mounted apps to access parent services/stash
+  - Add `$scope->{'pagi.services'}` and `$scope->{'pagi.stash'}`
+  - Follows PSGI convention for framework-specific data
+  - Enables composition without tight coupling
 
 ## PubSub / Multi-Worker Considerations
 

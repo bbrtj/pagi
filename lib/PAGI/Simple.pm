@@ -415,13 +415,6 @@ sub new ($class, %args) {
     if (exists $args{namespace}) {
         $namespace = $args{namespace};
     }
-    elsif (exists $args{model_namespace}) {
-        # Backwards compatibility: model_namespace is deprecated
-        # Strip ::Model suffix since new namespace adds it automatically
-        warn "[PAGI::Simple] 'model_namespace' is deprecated, use 'namespace' instead\n";
-        $namespace = $args{model_namespace};
-        $namespace =~ s/::Model$//;  # TestApp::Model => TestApp
-    }
     else {
         # Generate namespace from app name
         $namespace = _generate_namespace($name);
@@ -468,9 +461,8 @@ sub new ($class, %args) {
         _view            => undef,        # View instance for template rendering
         _view_config     => undef,        # Deferred view configuration
         _caller_dir      => $caller_dir,  # Directory of the file creating the app
-        _namespace       => $namespace,   # App namespace for models, etc.
+        _namespace       => $namespace,   # App namespace for services, etc.
         _lib_dir         => $lib_dir,     # Lib directory added to @INC
-        model_config     => $args{model_config} // {},  # Per-model configuration (deprecated)
         service_config   => $args{service_config} // {},  # Per-service configuration
         _service_registry => {},          # Initialized services (instance or coderef)
         _pending_services => [],          # Services to init at startup [(class, name), ...]
@@ -795,8 +787,8 @@ sub home ($self) {
 
     my $ns = $app->namespace;  # e.g., 'LivePoll'
 
-Returns the application's namespace. This is used for resolving model classes:
-C<< $c->model('Poll') >> becomes C<< ${namespace}::Model::Poll >>.
+Returns the application's namespace. This is used for resolving service classes:
+C<< $c->service('Poll') >> becomes C<< ${namespace}::Service::Poll >>.
 
 The namespace is either:
 
@@ -1224,6 +1216,16 @@ async sub _handle_lifespan ($self, $scope, $receive, $send) {
                 for my $asset (sort keys %{$self->{_shared_assets}}) {
                     my $dir = eval { $self->share_dir($asset) } // '(not found)';
                     warn "[PAGI::Simple]   Share dir ($asset): $dir\n";
+                }
+            }
+
+            # Show view template directory
+            if ($self->{_view}) {
+                my $tpl_dir = $self->{_view}->template_dir;
+                if (-d $tpl_dir) {
+                    warn "[PAGI::Simple]   Templates:  $tpl_dir\n";
+                } else {
+                    warn "[PAGI::Simple]   Templates:  $tpl_dir (not found)\n";
                 }
             }
 
@@ -2300,6 +2302,19 @@ sub mount ($self, $prefix, $sub_app, @args) {
 
 # Internal: Check if a path matches any mounted app and dispatch to it
 # Returns 1 if dispatched, 0 if no mount matched
+#
+# TODO: Consider adding 404 pass-through option. Currently, if a mounted app
+# returns 404, the parent app's routes are NOT tried. A future enhancement
+# could add a pass_through option: $app->mount('/api' => $sub_app, { pass_through => 1 })
+# This would let parent routes handle 404s from mounted apps. Use case: fallback
+# routes or catch-all handlers in the parent app.
+#
+# TODO: Consider sharing services/stash between parent and mounted apps via $scope.
+# Currently, mounted apps are isolated. To enable sharing, we could add parent
+# app's service_registry and stash to $scope (e.g., $scope->{pagi.services},
+# $scope->{pagi.stash}). Mounted apps could then access parent services or share
+# request-scoped data. This follows the PSGI convention of using the scope hash
+# for framework-specific data.
 async sub _dispatch_to_mounted ($self, $scope, $receive, $send) {
     my $path = $scope->{path} // '/';
     my $type = $scope->{type} // '';
