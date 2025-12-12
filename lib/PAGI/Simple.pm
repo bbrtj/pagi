@@ -401,6 +401,23 @@ Examples:
 
 =cut
 
+# TODO: Add optional conf.pl support. If a conf.pl file exists in the app directory,
+# load it and merge with constructor args. This would allow:
+#
+#   # conf.pl
+#   {
+#       name      => 'My App',
+#       namespace => 'MyApp',
+#       share     => 'htmx',
+#       views     => { directory => './templates', ... },
+#   }
+#
+#   # app.pl
+#   my $app = PAGI::Simple->new();  # Automatically loads conf.pl
+#
+# Constructor args should override conf.pl values. Could also support conf.pl
+# returning a coderef for dynamic config: sub { my ($caller_dir) = @_; ... }
+
 sub new ($class, %args) {
     # Capture caller's file location for default template directory
     my ($caller_file) = (caller(0))[1];
