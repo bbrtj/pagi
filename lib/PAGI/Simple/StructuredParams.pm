@@ -5,6 +5,7 @@ use warnings;
 use experimental 'signatures';
 
 use Hash::MultiValue;
+use PAGI::Simple::Exception;
 
 # Step 1: Core class with chainable API foundation
 
@@ -49,6 +50,11 @@ sub skip ($self, @fields) {
     return $self;
 }
 
+sub required ($self, @fields) {
+    push @{$self->{_required_fields}}, @fields;
+    return $self;
+}
+
 sub to_hash ($self) {
     my $filtered_mv = $self->_apply_namespace();  # Returns Hash::MultiValue
 
@@ -65,6 +71,11 @@ sub to_hash ($self) {
     # Step 4: Apply skip filtering if skip fields are defined
     if (keys %{$self->{_skip_fields}}) {
         $nested = $self->_apply_skip($nested);
+    }
+
+    # Step 6: Validate required fields (D4: after all filtering)
+    if (@{$self->{_required_fields}}) {
+        $self->_validate_required($nested);
     }
 
     return $nested;
@@ -342,6 +353,30 @@ sub _apply_skip ($self, $data) {
     }
 
     return \%result;
+}
+
+# Step 6: Required field validation
+
+# Validate that required fields are present in the final data
+# Per D4: validation happens AFTER all filtering (namespace, permitted, skip)
+sub _validate_required ($self, $data) {
+    my @missing;
+
+    for my $field (@{$self->{_required_fields}}) {
+        # Check if field exists, is defined, and is not empty string
+        unless (exists $data->{$field}
+                && defined $data->{$field}
+                && $data->{$field} ne '') {
+            push @missing, $field;
+        }
+    }
+
+    if (@missing) {
+        die PAGI::Simple::Exception->new(
+            message => "Missing required parameters: " . join(', ', @missing),
+            status  => 400,
+        );
+    }
 }
 
 1;
