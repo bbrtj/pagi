@@ -336,6 +336,88 @@ sub service ($self, $name, %args) {
     return $entry;
 }
 
+=head2 run_blocking
+
+    my $result = await $c->run_blocking(sub {
+        # Blocking code here (no arguments)
+        return $computed_value;
+    });
+
+    # With arguments (recommended for passing request data)
+    my $result = await $c->run_blocking(sub {
+        my ($id, $query) = @_;  # Use @_, not signatures
+        my $dbh = DBI->connect(...);
+        return $dbh->selectrow_hashref(
+            "SELECT * FROM users WHERE id = ? AND name LIKE ?",
+            {}, $id, "%$query%"
+        );
+    }, $id, $query);
+
+Execute blocking code in a worker process without blocking the event loop.
+Returns a Future that resolves with the return value of the code block.
+
+B<Arguments>: You can pass arguments after the code block. These are serialized
+and passed to the code block via C<@_>. This is the recommended way to pass
+request data to workers:
+
+    my $user_id = $c->path_params->{id};
+    my $filters = { status => 'active', limit => 10 };
+
+    my $result = await $c->run_blocking(sub {
+        my ($id, $opts) = @_;
+        my $dbh = DBI->connect($ENV{DB_DSN});
+        return $dbh->selectall_arrayref(
+            "SELECT * FROM orders WHERE user_id = ? AND status = ? LIMIT ?",
+            { Slice => {} },
+            $id, $opts->{status}, $opts->{limit}
+        );
+    }, $user_id, $filters);
+
+B<Note>: Due to a B::Deparse limitation, subroutine signatures (C<sub ($a, $b)>)
+do not work correctly. Use traditional C<my (...) = @_> argument handling.
+
+B<IMPORTANT>: The code block runs in a separate process. It cannot access:
+
+=over 4
+
+=item * Lexical variables from the enclosing scope (pass them as arguments)
+
+=item * The event loop or async features
+
+=item * Open filehandles or database connections (create them inside the block)
+
+=back
+
+Arguments must be serializable (scalars, arrays, hashes). Complex objects,
+coderefs, and filehandles cannot be passed.
+
+Requires C<workers> configuration in PAGI::Simple->new():
+
+    my $app = PAGI::Simple->new(
+        workers => { max_workers => 4 },
+    );
+
+Throws an exception if workers are not configured.
+
+=cut
+
+sub run_blocking ($self, $code, @args) {
+    my $app = $self->{app};
+    my $pool = $app->worker_pool;
+
+    unless ($pool) {
+        croak "run_blocking() requires worker configuration. " .
+              "Add 'workers => { max_workers => N }' to PAGI::Simple->new()";
+    }
+
+    # Serialize the coderef using B::Deparse since IO::Async::Channel
+    # uses Sereal which doesn't support coderefs
+    my $code_string = $app->_serialize_code_for_worker($code);
+
+    # Pass arguments as an arrayref - these are serialized by Sereal
+    return $pool->call(args => [$code_string, \@args]);
+}
+
 =head2 param
 
     my $id = await $c->param('id');
