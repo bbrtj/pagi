@@ -5,7 +5,7 @@ This document contains a comprehensive audit of PAGI::Server identifying issues 
 **Audit Date:** 2024-12-14
 **Files Audited:** `lib/PAGI/Server.pm`, `lib/PAGI/Server/*.pm`
 **Total Issues Found:** 29 (5 Critical, 3 High, 17 Medium, 4 Low)
-**Issues Fixed:** 8 (1.1-1.5, 2.1, 2.3, 2.4)
+**Issues Fixed:** 9 (1.1-1.5, 2.1, 2.3, 2.4, 3.10)
 **Issues Removed:** 2 (1.6, 2.2 - not real issues)
 
 ---
@@ -655,29 +655,23 @@ if ($ssl->{verify_client}) {
 
 ### 3.10 Inefficient Connection Cleanup O(N²)
 
-**Status:** NOT FIXED
-**File:** `lib/PAGI/Server/Connection.pm`
-**Lines:** 791-792
+**Status:** FIXED (2024-12-14)
+**File:** `lib/PAGI/Server.pm`, `lib/PAGI/Server/Connection.pm`
 
 **Problem:**
-Closing connection uses O(N) array filter; closing all is O(N²).
+Closing connection used O(N) array filter; closing all was O(N²).
 
-**Current Code:**
+**Fix Applied:**
+Changed `$self->{connections}` from array to hash keyed by `refaddr($conn)`:
 ```perl
-# Connection.pm lines 791-792
-@{$self->{server}{connections}} =
-    grep { $_ != $self } @{$self->{server}{connections}};
+# Server.pm - O(1) insert
+$self->{connections}{refaddr($conn)} = $conn;
+
+# Connection.pm - O(1) delete
+delete $self->{server}{connections}{refaddr($self)};
 ```
 
-**Recommended Fix:**
-Use hash instead of array for connections:
-```perl
-# In Server.pm, change connections from array to hash:
-$self->{connections} = {};  # keyed by "$connection" stringification
-
-# In Connection.pm _close():
-delete $self->{server}{connections}{"$self"};
-```
+At 500 concurrent connections, this eliminates significant overhead on every request completion.
 
 ---
 
