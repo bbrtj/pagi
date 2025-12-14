@@ -4,9 +4,9 @@ This document contains a comprehensive audit of PAGI::Server identifying issues 
 
 **Audit Date:** 2024-12-14
 **Files Audited:** `lib/PAGI/Server.pm`, `lib/PAGI/Server/*.pm`
-**Total Issues Found:** 30 (5 Critical, 4 High, 17 Medium, 4 Low)
-**Issues Fixed:** 6 (1.1-1.5, 2.1)
-**Issues Removed:** 1 (1.6 - not a real issue)
+**Total Issues Found:** 29 (5 Critical, 3 High, 17 Medium, 4 Low)
+**Issues Fixed:** 7 (1.1-1.5, 2.1, 2.3)
+**Issues Removed:** 2 (1.6, 2.2 - not real issues)
 
 ---
 
@@ -251,66 +251,32 @@ my $chunk_size = hex($size_line);
 
 ---
 
-### 2.2 Lifespan Exception Misclassification
+### 2.2 ~~Lifespan Exception Misclassification~~
 
-**Status:** NOT FIXED
-**File:** `lib/PAGI/Server.pm`
-**Lines:** 618-639
+**Status:** NOT AN ISSUE (removed from audit 2024-12-14)
 
-**Problem:**
-If lifespan app throws an exception not matching a specific pattern, server may start with broken state.
+**Original Concern:**
+Claimed that lifespan exceptions could cause server to start with broken state.
 
-**Current Code:**
-```perl
-# Server.pm lines 618-639
-if (my $error = $@) {
-    $lifespan_supported = 0;
-    if (!$startup_complete->is_ready) {
-        if ($error =~ /unsupported.*scope.*type|unsupported.*lifespan/i) {
-            # Treat as "lifespan not supported" - OK
-            $startup_complete->done({ success => 1, lifespan_supported => 0 });
-        }
-        else {
-            warn "PAGI lifespan handler error: $error\n";
-            $startup_complete->done({ success => 0, message => "Exception: $error" });
-        }
-    }
-}
-```
+**Why It's Not An Issue:**
+Upon investigation, the server handles this correctly:
 
-**Impact:**
-- Database connection failure in startup hook could be mishandled
-- Server starts despite initialization failure
-- Requests fail with confusing errors
+1. **Single-worker mode** (lines 240-245): Checks `!$startup_result->{success}` and dies
+   with "Lifespan startup failed" message, preventing server from starting.
 
-**Recommended Fix:**
-```perl
-if (my $error = $@) {
-    $lifespan_supported = 0;
-    if (!$startup_complete->is_ready) {
-        if ($error =~ /unsupported.*scope.*type|unsupported.*lifespan/i) {
-            $startup_complete->done({ success => 1, lifespan_supported => 0 });
-        }
-        else {
-            require Carp;
-            Carp::cluck("PAGI lifespan handler fatal error: $error");
-            $startup_complete->done({
-                success => 0,
-                message => "Exception: $error",
-                fatal => 1  # Mark as fatal
-            });
-        }
-    }
-}
-```
+2. **Multi-worker mode** (lines 478-495): Checks `!$startup_result->{success}`, sets
+   `$startup_error`, and calls `exit(1)` to terminate the worker.
+
+The code at lines 632-635 correctly sets `success => 0` for non-lifespan exceptions,
+and the callers properly check this and refuse to start.
 
 ---
 
 ### 2.3 Worker Startup Exception Not Properly Handled
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-14)
 **File:** `lib/PAGI/Server.pm`
-**Lines:** 475-487
+**Lines:** 413-437, 492-495
 
 **Problem:**
 Worker process continues even if lifespan startup fails; parent can't distinguish startup failure from runtime crash.
