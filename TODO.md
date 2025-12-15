@@ -4,13 +4,13 @@
 
 - When in multi-worker mode, add timeout to allow reaping children
 - Review common server configuration options (from Uvicorn, Hypercorn, Starman)
-- More logging levels and control (like Apache)
-- ~~Run compliance tests: HTTP/1.1, WebSocket, TLS, SSE~~ **DONE** - See COMPLIANCE.md
+- ~~More logging levels and control (like Apache)~~ **DONE** - See `log_level` option (debug, info, warn, error)
+- ~~Run compliance tests: HTTP/1.1, WebSocket, TLS, SSE~~ **DONE** - See `perldoc PAGI::Server::Compliance`
   - HTTP/1.1: Full compliance (10/10 tests)
   - WebSocket (Autobahn): 215/301 non-compression tests pass (71%); validation added for RSV bits, reserved opcodes, close codes, control frame sizes
 - UTF-8 testing for text, HTML, JSON
 - middleware for handling Reverse proxy / reverse proxy path
-- ~~Verify no memory leaks in PAGI::Server and PAGI::Simple~~ **DONE** - See COMPLIANCE.md Phase 6
+- ~~Verify no memory leaks in PAGI::Server and PAGI::Simple~~ **DONE** - See `perldoc PAGI::Server::Compliance`
 - Max requests per worker (--max-requests) for long-running deployments
   - Common in Starman, Gunicorn, uWSGI
   - Defense against slow memory growth (~6.5 bytes/request observed)
