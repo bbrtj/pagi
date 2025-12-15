@@ -5,7 +5,7 @@ This document contains a comprehensive audit of PAGI::Server identifying issues 
 **Audit Date:** 2024-12-14
 **Files Audited:** `lib/PAGI/Server.pm`, `lib/PAGI/Server/*.pm`
 **Total Issues Found:** 29 (5 Critical, 3 High, 17 Medium, 4 Low)
-**Issues Fixed:** 16 (1.1-1.5, 2.1, 2.3, 2.4, 2.5, 3.3, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10)
+**Issues Fixed:** 19 (1.1-1.5, 2.1, 2.3, 2.4, 2.5, 3.3, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.16, 4.2, 4.4)
 **Issues Removed:** 3 (1.6, 2.2, 3.4 - not real issues)
 
 ---
@@ -798,22 +798,25 @@ if ($http_version eq '1.0' && $keep_alive) {
 
 ### 3.16 No Request Line Length Limit
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-14)
 **File:** `lib/PAGI/Server/Protocol/HTTP1.pm`
-**Lines:** 114-125
+**Lines:** 149-153
 
 **Problem:**
 Only header block size is limited, not individual request line.
 
-**Recommended Fix:**
+**Fix Applied:**
 ```perl
-my $MAX_REQUEST_LINE = 8192;  # 8KB per RFC 7230 recommendation
-
+# Check request line length (first line before \r\n)
 my $first_line_end = index($buffer, "\r\n");
-if ($first_line_end > $MAX_REQUEST_LINE) {
-    return ({ error => 414, message => "URI Too Long" }, 0);
+if ($first_line_end > $self->{max_request_line_size}) {
+    return ({ error => 414, message => 'URI Too Long' }, $header_end + 4);
 }
 ```
+
+Default limit is 8KB per RFC 7230 recommendation. Configurable via constructor.
+
+**Test:** `t/21-quick-wins.t`
 
 ---
 
@@ -872,21 +875,33 @@ $tls_info->{server_cert_fingerprint} = sha256_hex($cert_der);
 
 ### 4.2 Missing Server Header
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-14)
 **File:** `lib/PAGI/Server/Protocol/HTTP1.pm`
-**Lines:** 227-230
+**Lines:** 259-271
 
 **Problem:**
 No Server header in responses.
 
-**Recommended Fix:**
-Add if not present:
+**Fix Applied:**
 ```perl
-my $has_server = grep { lc($_->[0]) eq 'server' } @$headers;
+# Check if app provided a Server header
+my $has_server = 0;
+for my $header (@$headers) {
+    if (lc($header->[0]) eq 'server') {
+        $has_server = 1;
+        last;
+    }
+}
+
+# Add default Server header if not provided
 unless ($has_server) {
     $response .= "Server: PAGI/$VERSION\r\n";
 }
 ```
+
+Applications can override by providing their own Server header.
+
+**Test:** `t/21-quick-wins.t`
 
 ---
 
@@ -912,22 +927,35 @@ my $response = $status_line . join("\r\n", @header_lines) . "\r\n\r\n";
 
 ### 4.4 Certificate Files Not Validated at Startup
 
-**Status:** NOT FIXED
+**Status:** FIXED (2024-12-14)
 **File:** `lib/PAGI/Server.pm`
-**Lines:** 272-273
+**Lines:** 265-279
 
 **Problem:**
 Certificate/key files validated at listen time, not at startup.
 
-**Recommended Fix:**
+**Fix Applied:**
 ```perl
-if ($ssl->{cert_file}) {
-    die "Certificate file not found: $ssl->{cert_file}"
-        unless -f $ssl->{cert_file};
-    die "Certificate file not readable: $ssl->{cert_file}"
-        unless -r $ssl->{cert_file};
+# Validate SSL certificate files at startup (fail fast)
+if (my $ssl = $self->{ssl}) {
+    if (my $cert = $ssl->{cert_file}) {
+        die "SSL certificate file not found: $cert\n" unless -e $cert;
+        die "SSL certificate file not readable: $cert\n" unless -r $cert;
+    }
+    if (my $key = $ssl->{key_file}) {
+        die "SSL key file not found: $key\n" unless -e $key;
+        die "SSL key file not readable: $key\n" unless -r $key;
+    }
+    if (my $ca = $ssl->{ca_file}) {
+        die "SSL CA file not found: $ca\n" unless -e $ca;
+        die "SSL CA file not readable: $ca\n" unless -r $ca;
+    }
 }
 ```
+
+Validates cert_file, key_file, and ca_file existence and readability in constructor.
+
+**Test:** `t/21-quick-wins.t`
 
 ---
 
