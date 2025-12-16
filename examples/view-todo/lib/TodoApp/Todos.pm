@@ -19,9 +19,11 @@ sub routes ($class, $app, $r) {
     $r->patch('/todos/:id'         => '#load' => '#update')->name('todo_update');
     $r->delete('/todos/:id'        => '#load' => '#destroy')->name('todo_delete');
 
-    # Bulk operations
-    $r->post('/todos/clear-completed' => '#clear_completed')->name('todos_clear');
-    $r->post('/todos/toggle-all'      => '#toggle_all')->name('todos_toggle_all');
+    # Bulk operations (sub-handler)
+    $r->mount('/todos' => '::Todos::Bulk');
+
+    # SSE for live updates
+    $r->sse('/todos/live' => '#live')->name('todos_live');
 
     # Validation
     $r->post('/validate/:field' => '#validate_field')->name('validate_field');
@@ -30,7 +32,7 @@ sub routes ($class, $app, $r) {
 # Middleware: load todo by :id
 async sub load ($self, $c) {
     my $id = $c->path_params->{id};
-    my $todo = $c->app->service('Todo')->find($id);
+    my $todo = $c->service('Todo')->find($id);
 
     return $c->status(404)->html('<span class="error">Todo not found</span>')
         unless $todo;
@@ -40,7 +42,7 @@ async sub load ($self, $c) {
 
 # Index views
 async sub index ($self, $c) {
-    my $todos = $c->app->service('Todo');
+    my $todos = $c->service('Todo');
     $c->render('index',
         todos    => [$todos->all],
         new_todo => $todos->new_todo,
@@ -50,7 +52,7 @@ async sub index ($self, $c) {
 }
 
 async sub active ($self, $c) {
-    my $todos = $c->app->service('Todo');
+    my $todos = $c->service('Todo');
     $c->render('index',
         todos    => [$todos->active],
         new_todo => $todos->new_todo,
@@ -60,7 +62,7 @@ async sub active ($self, $c) {
 }
 
 async sub completed ($self, $c) {
-    my $todos = $c->app->service('Todo');
+    my $todos = $c->service('Todo');
     $c->render('index',
         todos    => [$todos->completed],
         new_todo => $todos->new_todo,
@@ -71,7 +73,7 @@ async sub completed ($self, $c) {
 
 # CRUD operations
 async sub create ($self, $c) {
-    my $todos = $c->app->service('Todo');
+    my $todos = $c->service('Todo');
     my $new_todo = $todos->new_todo;
 
     my $data = (await $c->structured_body)
@@ -82,12 +84,8 @@ async sub create ($self, $c) {
     my $todo = $todos->build($data);
 
     if ($todos->save($todo)) {
-        if ($c->req->is_htmx) {
-            $c->hx_trigger('todoAdded');
-            $c->render('todos/_form', todo => $todos->new_todo);
-        } else {
-            $c->redirect('/');
-        }
+        $c->hx_trigger('todoAdded');
+        await $c->render_or_redirect('/', 'todos/_form', todo => $todos->new_todo);
     } else {
         if ($c->req->is_htmx) {
             $c->render('todos/_form', todo => $todo);
@@ -103,7 +101,7 @@ async sub create ($self, $c) {
 }
 
 async sub toggle ($self, $c) {
-    my $todos = $c->app->service('Todo');
+    my $todos = $c->service('Todo');
     my $todo = $c->stash->{todo};
     $todo = $todos->toggle($todo->{id});
 
@@ -116,7 +114,7 @@ async sub edit_form ($self, $c) {
 }
 
 async sub update ($self, $c) {
-    my $todos = $c->app->service('Todo');
+    my $todos = $c->service('Todo');
     my $todo = $c->stash->{todo};
 
     my $data = (await $c->structured_body)
@@ -137,34 +135,9 @@ async sub update ($self, $c) {
 
 async sub destroy ($self, $c) {
     my $todo = $c->stash->{todo};
-    $c->app->service('Todo')->delete($todo->{id});
+    $c->service('Todo')->delete($todo->{id});
     $c->hx_trigger('todoDeleted');
     await $c->empty_or_redirect('/');
-}
-
-# Bulk operations
-async sub clear_completed ($self, $c) {
-    my $todos = $c->app->service('Todo');
-    $todos->clear_completed;
-
-    $c->hx_trigger('todosCleared');
-    await $c->render_or_redirect('/', 'todos/_list',
-        todos  => [$todos->all],
-        active => $todos->active_count,
-        filter => 'home',
-    );
-}
-
-async sub toggle_all ($self, $c) {
-    my $todos = $c->app->service('Todo');
-    $todos->toggle_all;
-
-    $c->hx_trigger('todosToggled');
-    await $c->render_or_redirect('/', 'todos/_list',
-        todos  => [$todos->all],
-        active => $todos->active_count,
-        filter => 'home',
-    );
 }
 
 # Field validation
@@ -177,13 +150,21 @@ async sub validate_field ($self, $c) {
         ->to_hash;
 
     my $value = $data->{$field} // '';
-    my @errors = $c->app->service('Todo')->validate_field($field, $value);
+    my @errors = $c->service('Todo')->validate_field($field, $value);
 
     if (@errors) {
         $c->html(qq{<span class="error">@{[join(', ', @errors)]}</span>});
     } else {
         $c->html(qq{<span class="valid">Looks good!</span>});
     }
+}
+
+# SSE live updates
+sub live ($self, $sse) {
+    $sse->send_event(event => 'connected', data => 'ok');
+    $sse->subscribe('todos:changes' => sub ($msg) {
+        $sse->send_event(event => 'refresh', data => $msg->{action} // 'update');
+    });
 }
 
 1;

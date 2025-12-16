@@ -20,14 +20,6 @@ sub init ($class) {
 sub routes ($class, $app, $r) {
     # Mount handlers
     $r->mount('/' => '::Todos');
-
-    # SSE for live updates
-    $app->sse('/todos/live' => sub ($sse) {
-        $sse->send_event(event => 'connected', data => 'ok');
-        $sse->subscribe('todos:changes' => sub ($msg) {
-            $sse->send_event(event => 'refresh', data => $msg->{action} // 'update');
-        });
-    });
 }
 
 1;
