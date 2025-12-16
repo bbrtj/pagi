@@ -148,4 +148,18 @@ subtest 'sse routes can be named' => sub {
     is($url, '/events', 'url_for resolves named SSE route');
 };
 
+# Test 4: WebSocket named routes
+subtest 'websocket routes can be named' => sub {
+    my $app = PAGI::Simple->new;
+
+    my $result = $app->websocket('/chat' => sub ($ws) { });
+
+    ok($result->can('name'), 'websocket returns object with name method');
+
+    $result->name('chat_room');
+
+    my $url = $app->url_for('chat_room');
+    is($url, '/chat', 'url_for resolves named WebSocket route');
+};
+
 done_testing;

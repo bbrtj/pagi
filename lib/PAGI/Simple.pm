@@ -2421,8 +2421,8 @@ sub websocket ($self, $path, $handler) {
     # Apply group prefix to path
     my $full_path = $self->{_prefix} . $path;
 
-    $self->{ws_router}->add('GET', $full_path, $handler);
-    return $self;
+    my $route = $self->{ws_router}->add('GET', $full_path, $handler);
+    return $route;  # Return route for chaining ->name()
 }
 
 =head2 sse

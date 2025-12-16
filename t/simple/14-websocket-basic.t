@@ -246,7 +246,7 @@ subtest 'websocket context has app' => sub {
 
     simulate_websocket($app, path => '/ws');
 
-    is($app_ref, $app, 'ws->app returns app');
+    ok($app_ref == $app, 'ws->app returns app');
 };
 
 # Test 13: WebSocket context has scope
@@ -264,13 +264,14 @@ subtest 'websocket context has scope' => sub {
     is($scope_ref->{path}, '/ws', 'scope has path');
 };
 
-# Test 14: websocket returns $app for chaining
-subtest 'websocket returns app for chaining' => sub {
+# Test 14: websocket returns route object for chaining
+subtest 'websocket returns route object for chaining' => sub {
     my $app = PAGI::Simple->new;
 
     my $result = $app->websocket('/ws' => sub ($ws) { });
 
-    is($result, $app, 'websocket returns $app');
+    ok($result->isa('PAGI::Simple::Route'), 'websocket returns a Route object');
+    ok($result->can('name'), 'route object has name method');
 };
 
 # Test 15: WebSocket in group
