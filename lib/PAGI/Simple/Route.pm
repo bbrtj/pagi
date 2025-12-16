@@ -44,14 +44,16 @@ sub new ($class, %args) {
     my $path = $args{path} // '/';
 
     my $self = bless {
-        method      => uc($args{method} // 'GET'),
-        path        => $path,
-        handler     => $args{handler},
-        name        => $args{name},
-        middleware  => $args{middleware} // [],  # Array of middleware names
-        _param_names => [],
-        _regex      => undef,
-        _is_static  => 1,
+        method           => uc($args{method} // 'GET'),
+        path             => $path,
+        handler          => $args{handler},
+        name             => $args{name},
+        middleware       => $args{middleware} // [],  # Array of middleware names
+        handler_methods  => $args{handler_methods} // [],
+        handler_instance => $args{handler_instance},
+        _param_names     => [],
+        _regex           => undef,
+        _is_static       => 1,
     }, $class;
 
     # Compile path pattern into regex
@@ -227,6 +229,30 @@ sub matches_path ($self, $path) {
     }
 
     return \%params;
+}
+
+=head2 handler_methods
+
+    my $methods = $route->handler_methods;
+
+Returns the arrayref of handler method names for this route (when using #method syntax).
+
+=cut
+
+sub handler_methods ($self) {
+    return $self->{handler_methods};
+}
+
+=head2 handler_instance
+
+    my $instance = $route->handler_instance;
+
+Returns the handler instance for this route (when using #method syntax).
+
+=cut
+
+sub handler_instance ($self) {
+    return $self->{handler_instance};
 }
 
 =head1 SEE ALSO

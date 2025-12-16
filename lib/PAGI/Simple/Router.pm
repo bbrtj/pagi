@@ -65,18 +65,53 @@ Options:
 
 =cut
 
-sub add ($self, $method, $path, $handler, %options) {
+sub add ($self, $method, $path, @args) {
+    my %options;
+    my @handlers;
+
+    # Parse args: can be mix of #method strings, coderefs, and %options
+    while (@args) {
+        my $arg = shift @args;
+
+        if (ref($arg) eq 'CODE') {
+            push @handlers, $arg;
+        }
+        elsif (ref($arg) eq 'HASH') {
+            # Remaining hash is options
+            %options = (%options, %$arg);
+        }
+        elsif (ref($arg) eq 'ARRAY') {
+            # Middleware array
+            $options{middleware} = $arg;
+        }
+        elsif (!ref($arg) && $arg =~ /^#(\w+)$/) {
+            # #method syntax - store method name
+            push @{$options{handler_methods}}, $1;
+        }
+        elsif (!ref($arg)) {
+            # Named option key - next arg is value
+            $options{$arg} = shift @args;
+        }
+    }
+
+    # If we have handler_methods, we need handler_instance to resolve them
+    my $handler;
+    if (@handlers) {
+        $handler = $handlers[0];  # Use first coderef as handler
+    }
+
     my $route = PAGI::Simple::Route->new(
-        method     => $method,
-        path       => $path,
-        handler    => $handler,
-        name       => $options{name},
-        middleware => $options{middleware} // [],
+        method          => $method,
+        path            => $path,
+        handler         => $handler,
+        name            => $options{name},
+        middleware      => $options{middleware} // [],
+        handler_methods => $options{handler_methods} // [],
+        handler_instance => $options{handler_instance},
     );
 
     push @{$self->{routes}}, $route;
 
-    # Register in named routes index
     if (my $name = $options{name}) {
         $self->{named_routes}{$name} = $route;
     }
