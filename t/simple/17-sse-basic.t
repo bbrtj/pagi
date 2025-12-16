@@ -259,7 +259,7 @@ subtest 'sse context has app' => sub {
 
     simulate_sse($app, path => '/events');
 
-    is($app_ref, $app, 'sse->app returns app');
+    ok($app_ref == $app, 'sse->app returns app');
 };
 
 # Test 17: SSE context has scope
@@ -282,13 +282,14 @@ subtest 'is_closed accessor' => sub {
     ok($sse->is_closed, 'closed after close()');
 };
 
-# Test 19: sse returns $app for chaining
-subtest 'sse returns app for chaining' => sub {
+# Test 19: sse returns route object for chaining
+subtest 'sse returns route object for chaining' => sub {
     my $app = PAGI::Simple->new;
 
     my $result = $app->sse('/events' => sub ($sse) { });
 
-    is($result, $app, 'sse returns $app');
+    ok($result->isa('PAGI::Simple::Route'), 'sse returns a Route object');
+    ok($result->can('name'), 'route object has name method');
 };
 
 # Test 20: SSE in group

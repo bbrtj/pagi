@@ -530,10 +530,42 @@ sub new ($class, %args) {
     }
 
     # Capture caller's file location for default template directory
-    my ($caller_file) = (caller(0))[1];
+    # Allow override via _caller_file (used by to_app class method)
+    my $caller_file = delete $args{_caller_file} // (caller(0))[1];
     require File::Basename;
     require File::Spec;
     my $caller_dir = File::Basename::dirname(File::Spec->rel2abs($caller_file));
+
+    # Catalyst-style home detection: if in lib/ or blib/, check parent for app markers
+    # This handles the common case of running `pagi-server -I lib MyApp`
+    unless (exists $args{home}) {
+        my $potential_home = $caller_dir;
+        if ($potential_home =~ s{[\\/]b?lib$}{}) {
+            # Check for app markers in parent directory
+            if (-f "$potential_home/cpanfile"   ||
+                -f "$potential_home/Makefile.PL" ||
+                -f "$potential_home/Build.PL"   ||
+                -f "$potential_home/dist.ini"   ||
+                -f "$potential_home/app.pl"     ||
+                -d "$potential_home/templates"  ||
+                -d "$potential_home/views") {
+                $caller_dir = $potential_home;
+            }
+        }
+    }
+
+    # Allow explicit home directory override (relative to module location)
+    if (exists $args{home}) {
+        my $home = $args{home};
+        if (File::Spec->file_name_is_absolute($home)) {
+            $caller_dir = $home;
+        } else {
+            # Relative path is relative to the auto-detected caller_dir
+            $caller_dir = File::Spec->rel2abs(
+                File::Spec->catdir($caller_dir, $home)
+            );
+        }
+    }
 
     my $name = $args{name} // 'PAGI::Simple';
 
@@ -1365,14 +1397,30 @@ sub has_shared ($self, $name) {
 
 =head2 to_app
 
-    my $pagi_app = $app->to_app;
+    my $pagi_app = $app->to_app;     # instance method
+    my $pagi_app = MyApp->to_app;    # class method (calls new first)
 
 Returns a PAGI-compatible coderef that can be used with PAGI::Server
 or pagi-server CLI.
 
+Can be called as either an instance method or a class method. When called
+as a class method, it first instantiates the class via C<new()> and then
+returns the app coderef. This enables concise app files:
+
+    # app.pl
+    use MyApp;
+    MyApp->to_app;
+
 =cut
 
 sub to_app ($self) {
+    # If called as class method, instantiate first
+    unless (ref $self) {
+        # Capture caller's file so new() uses correct home directory
+        my ($caller_file) = (caller(0))[1];
+        $self = $self->new(_caller_file => $caller_file);
+    }
+
     return async sub ($scope, $receive, $send) {
         await $self->_handle_request($scope, $receive, $send);
     };
@@ -2407,8 +2455,8 @@ sub sse ($self, $path, $handler) {
     # Apply group prefix to path
     my $full_path = $self->{_prefix} . $path;
 
-    $self->{sse_router}->add('GET', $full_path, $handler);
-    return $self;
+    my $route = $self->{sse_router}->add('GET', $full_path, $handler);
+    return $route;  # Return route for chaining ->name()
 }
 
 =head2 static
@@ -2665,10 +2713,11 @@ sub _mount_handler ($self, $prefix, $class, $middleware, $constructor_args, $ins
     # Create a scoped router for this handler
     # Routes added here will be prefixed and have handler_instance set
     my $scoped_router = PAGI::Simple::Router::Scoped->new(
-        parent          => $self->{router},
-        prefix          => $prefix,
+        app              => $self,
+        parent           => $self->{router},
+        prefix           => $prefix,
         handler_instance => $instance,
-        middleware      => [@{$self->{_group_middleware}}, @$middleware],
+        middleware       => [@{$self->{_group_middleware}}, @$middleware],
     );
 
     # Call the handler's routes() class method
@@ -2826,7 +2875,19 @@ Returns undef if the route is not found or required parameters are missing.
 =cut
 
 sub url_for ($self, $name, %params) {
-    return $self->{router}->url_for($name, %params);
+    # Check main router first
+    my $url = $self->{router}->url_for($name, %params);
+    return $url if defined $url;
+
+    # Check SSE router
+    $url = $self->{sse_router}->url_for($name, %params);
+    return $url if defined $url;
+
+    # Check WebSocket router
+    $url = $self->{ws_router}->url_for($name, %params);
+    return $url if defined $url;
+
+    return undef;
 }
 
 =head2 named_routes

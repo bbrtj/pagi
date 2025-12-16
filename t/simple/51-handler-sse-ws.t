@@ -133,4 +133,19 @@ subtest 'websocket #method syntax resolves handler method' => sub {
     ok($TestApp::Chat::chat_ws_ref->isa('PAGI::Simple::WebSocket'), 'context is WebSocket object');
 };
 
+# Test 3: SSE named routes
+subtest 'sse routes can be named' => sub {
+    my $app = PAGI::Simple->new;
+
+    my $result = $app->sse('/events' => sub ($sse) { });
+
+    # Should return something chainable with ->name()
+    ok($result->can('name'), 'sse returns object with name method');
+
+    $result->name('live_events');
+
+    my $url = $app->url_for('live_events');
+    is($url, '/events', 'url_for resolves named SSE route');
+};
+
 done_testing;
