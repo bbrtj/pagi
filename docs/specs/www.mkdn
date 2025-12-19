@@ -107,9 +107,11 @@ Keys:
 - `fh` (Filehandle) -- Already-open filehandle for server to stream
 - `offset` (Int, default `0`) -- Byte offset to start reading from (for range requests)
 - `length` (Int, optional) -- Number of bytes to send (omit to read until EOF)
-- `more` (Int, default `0`) -- Indicates more body content to follow (`1` if true, otherwise `0`)
+- `more` (Int, default `0`) -- Indicates more body content to follow (`1` if true, otherwise `0`). **Ignored for `file` and `fh` responses** which are implicitly complete.
 
 The `body`, `file`, and `fh` keys are **mutually exclusive** - exactly one MUST be provided per event. Applications **MUST** provide `body` as encoded bytes. For text content, this typically means UTF-8 encoding before sending. The `Content-Length` header (if present) MUST reflect byte length, not character length.
+
+**Note:** When using `file` or `fh`, the response is implicitly complete after the file/handle contents are sent. The `more` key is ignored for these response types - there is no need to specify `more => 0`.
 
 When `file` or `fh` is provided, servers MUST stream the file contents efficiently:
 
