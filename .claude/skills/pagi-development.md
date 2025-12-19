@@ -355,3 +355,117 @@ await $send->({ type => 'websocket.accept' });
 - `1008` - Policy violation
 - `1011` - Server error
 - `4000-4999` - Application-specific codes
+
+## Server-Sent Events (SSE) Protocol
+
+SSE enables server-to-client streaming over HTTP. The server detects SSE requests when `Accept: text/event-stream` header is present.
+
+### SSE Scope
+
+When `$scope->{type}` is `"sse"`:
+
+```perl
+{
+    type         => 'sse',
+    http_version => '1.1',
+    method       => 'GET',
+    scheme       => 'http',
+    path         => '/events',
+    headers      => [...],
+    # ... same structure as HTTP
+}
+```
+
+### SSE Events
+
+**Send events:**
+- `sse.start` - Begin SSE stream (`status`, `headers`)
+- `sse.send` - Send event (`data`, `event`, `id`, `retry`)
+
+**Receive events:**
+- `sse.disconnect` - Client disconnected
+
+### SSE Message Format
+
+`sse.send` fields:
+- `data` (required) - Event payload (string, auto-encoded if hashref)
+- `event` (optional) - Event type name
+- `id` (optional) - Event ID for reconnection
+- `retry` (optional) - Reconnect delay in milliseconds
+
+### Complete SSE Example
+
+```perl
+use strict;
+use warnings;
+use Future::AsyncAwait;
+use experimental 'signatures';
+
+async sub app ($scope, $receive, $send) {
+    die "Unsupported scope type: $scope->{type}"
+        if $scope->{type} ne 'sse';
+
+    # Start SSE stream
+    await $send->({
+        type    => 'sse.start',
+        status  => 200,
+        headers => [['cache-control', 'no-cache']],
+    });
+
+    # Watch for disconnection in background
+    my $disconnected = 0;
+    my $watch = async sub {
+        while (1) {
+            my $event = await $receive->();
+            if ($event->{type} eq 'sse.disconnect') {
+                $disconnected = 1;
+                return;
+            }
+        }
+    };
+    my $watch_future = $watch->();
+
+    # Send events
+    my $count = 0;
+    while (!$disconnected && $count < 10) {
+        await $send->({
+            type  => 'sse.send',
+            event => 'tick',
+            data  => "Count: $count",
+            id    => $count,
+        });
+        $count++;
+
+        # Wait 1 second (use IO::Async timer in real code)
+        await IO::Async::Loop->new->delay_future(after => 1);
+    }
+
+    $watch_future->cancel if $watch_future->can('cancel');
+}
+
+$app;
+```
+
+### SSE with JSON Data
+
+```perl
+use JSON::PP;
+
+await $send->({
+    type  => 'sse.send',
+    event => 'update',
+    data  => encode_json({ users => \@users, count => scalar @users }),
+    id    => $event_id++,
+});
+```
+
+### Rejecting Non-SSE Requests
+
+If you want an endpoint that's HTTP-only (not SSE), reject SSE scope:
+
+```perl
+if ($scope->{type} eq 'sse') {
+    await $send->({ type => 'sse.start', status => 406 });
+    return;
+}
+```
