@@ -1118,3 +1118,48 @@ if ($path =~ m{^/api/}) {
     await require_auth($scope, $receive, $send, \&handle_api);
 }
 ```
+
+## Quick Reference
+
+### Scope Types
+| Type | Description |
+|------|-------------|
+| `http` | Single HTTP request/response |
+| `websocket` | Bidirectional WebSocket |
+| `sse` | Server-Sent Events stream |
+| `lifespan` | Startup/shutdown lifecycle |
+
+### HTTP Events
+| Event | Direction | Purpose |
+|-------|-----------|---------|
+| `http.request` | receive | Request body chunk |
+| `http.response.start` | send | Status + headers |
+| `http.response.body` | send | Body chunk (or file/fh) |
+| `http.disconnect` | receive | Client disconnected |
+
+### WebSocket Events
+| Event | Direction | Purpose |
+|-------|-----------|---------|
+| `websocket.connect` | receive | Connection request |
+| `websocket.accept` | send | Accept connection |
+| `websocket.receive` | receive | Message from client |
+| `websocket.send` | send | Message to client |
+| `websocket.disconnect` | receive | Client disconnected |
+| `websocket.close` | send | Close connection |
+
+### SSE Events
+| Event | Direction | Purpose |
+|-------|-----------|---------|
+| `sse.start` | send | Begin stream |
+| `sse.send` | send | Send event |
+| `sse.disconnect` | receive | Client disconnected |
+
+### Lifespan Events
+| Event | Direction | Purpose |
+|-------|-----------|---------|
+| `lifespan.startup` | receive | Server starting |
+| `lifespan.startup.complete` | send | Ready for connections |
+| `lifespan.startup.failed` | send | Startup error |
+| `lifespan.shutdown` | receive | Server stopping |
+| `lifespan.shutdown.complete` | send | Cleanup done |
+| `lifespan.shutdown.failed` | send | Cleanup error |
