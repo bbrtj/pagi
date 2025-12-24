@@ -34,7 +34,7 @@ This distribution has different stability levels:
 # Install dependencies
 cpanm --installdeps .
 
-# For best performance (fast JSON, zero-copy sendfile):
+# For best performance (fast JSON, zero-copy sendfile, TLS support):
 cpanm --installdeps . --with-recommends
 
 # Run tests
