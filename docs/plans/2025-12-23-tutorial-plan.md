@@ -302,7 +302,7 @@ async sub app {
 ```perl
 async sub app {
     my ($scope, $receive, $send) = @_;
-    return unless $scope->{type} eq 'sse';
+    die "Expected sse scope" unless $scope->{type} eq 'sse';
 
     await $send->({ type => 'sse.response.start' });
 
@@ -562,7 +562,7 @@ use PAGI::SSE;
 
 async sub app {
     my ($scope, $receive, $send) = @_;
-    return unless $scope->{type} eq 'sse';
+    die "Expected sse scope" unless $scope->{type} eq 'sse';
 
     my $sse = PAGI::SSE->new($scope, $receive, $send);
 

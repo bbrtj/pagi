@@ -1584,7 +1584,7 @@ use PAGI::Test::Client;
 my $sse_app = async sub {
     my ($scope, $receive, $send) = @_;
 
-    return unless ($scope->{type} // '') eq 'sse';
+    die "Expected sse scope" unless ($scope->{type} // '') eq 'sse';
 
     await $send->({
         type    => 'sse.start',
