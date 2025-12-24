@@ -482,11 +482,13 @@ Response mappings:
 
 ## PAGI Encoding Differences
 
-- `path`: Decoded UTF-8 string from percent-encoded input. The server first 
-  percent-decodes `raw_path`, then UTF-8 decodes the resulting bytes into 
-  Unicode characters. If the bytes are not valid UTF-8, the server **should** 
-  replace invalid sequences with U+FFFD (replacement character) rather than 
-  rejecting the request.
+- `path`: Decoded UTF-8 string from percent-encoded input. The server first
+  percent-decodes `raw_path`, then attempts UTF-8 decoding of the resulting
+  bytes into Unicode characters. If the bytes are not valid UTF-8, the server
+  **should** fall back to the original percent-decoded bytes rather than
+  replacing invalid sequences or rejecting the request (Mojolicious-style
+  fallback). Applications needing strict UTF-8 validation can check `raw_path`
+  and decode themselves with `Encode::FB_CROAK`.
 - `headers`: Represented as bytes exactly as sent/received
 - `query_string`: Raw bytes from URL after `?`, percent-encoded
 - `root_path`: Unicode path string matching `SCRIPT_NAME`

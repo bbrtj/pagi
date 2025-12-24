@@ -86,6 +86,10 @@ HTTP/1.1, WebSocket, and SSE correctly. However, it has not been battle-tested
 in production. B<Recommendation:> Run behind a reverse proxy like nginx, Apache,
 or Caddy for production deployments.
 
+Although I am marking this stable in terms of its interface, I reserve the right to
+make internal code changes and reorganizations.   You should not rely on internal
+details of the server for your application, just the L<PAGI::Spec> interface.
+
 See L<PAGI::Server>, L<PAGI::Server::Compliance>.
 
 =item B<Unstable: Everything Else>
@@ -214,8 +218,10 @@ bytes where the application must decide. Broad guidance:
 =over 4
 
 =item *
-C<$scope->{path}> is already UTF-8 decoded from the percent-encoded
-C<$scope->{raw_path}>. If you need exact on-the-wire bytes, use C<raw_path>.
+C<$scope->{path}> is UTF-8 decoded from the percent-encoded
+C<$scope->{raw_path}>. If UTF-8 decoding fails (invalid byte sequences), the
+original bytes are preserved as-is (Mojolicious-style fallback). If you need
+exact on-the-wire bytes, use C<raw_path>.
 
 =item *
 C<$scope->{query_string}> and request bodies arrive as percent-encoded or raw
