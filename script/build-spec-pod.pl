@@ -120,8 +120,6 @@ markdown files. For the authoritative source, see:
 
 L<https://github.com/jjn1056/PAGI/tree/main/docs/specs>
 
-=cut
-
 POD_HEADER
 
     # Write POD file
