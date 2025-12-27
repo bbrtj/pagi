@@ -62,3 +62,47 @@ in the codebase history but deemed overkill for the current implementation. The
 - PubSub limitations and Redis migration path
 - Performance tuning guide
 - Deployment guide (systemd, Docker, nginx)
+
+## Crazy Ideas for a Higher-Order Framework
+
+### Response as Future Collector
+
+The `->retain` footgun (forgetting to await send calls) is a common async mistake.
+PAGI intentionally keeps the spec simple like ASGI, but a higher-level framework
+could solve this by having `PAGI::Response` (or similar helper) maintain a
+`Future::Selector` or `Future::Converge` that collects all spawned futures.
+
+**Concept:**
+
+```perl
+# Framework-level helper (not raw PAGI)
+my $response = MyFramework::Response->new($send);
+
+# These would register futures with the response's collector
+$response->send_header(200, \@headers);  # Returns future, auto-collected
+$response->send_body("Hello");           # Returns future, auto-collected
+
+# Framework's finalize() awaits all collected futures
+await $response->finalize();  # Waits for everything
+```
+
+**Why it might work:**
+- All response operations go through the helper
+- Helper tracks every future created
+- `finalize()` awaits all of them before returning
+- No orphaned futures possible at this abstraction level
+
+**Why PAGI doesn't do this:**
+- PAGI is a protocol spec, not a framework
+- Raw `$send->()` is intentionally low-level
+- Frameworks like Dancer3/Mojolicious built on PAGI can implement this pattern
+- Keeps PAGI simple and ASGI-compatible
+
+**Implementation notes:**
+- Could use `Future::Utils::fmap_void` or `Future->wait_all`
+- Helper methods return futures AND register them
+- `finalize()` is just `await Future->wait_all(@collected_futures)`
+- Error in any collected future should propagate
+
+This pattern would eliminate the await footgun for framework users while keeping
+raw PAGI available for those who need direct control.
