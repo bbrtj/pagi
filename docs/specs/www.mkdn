@@ -1,6 +1,6 @@
 # HTTP, WebSocket & SSE PAGI Message Format
 
-**Version**: 0.1 (Draft)
+**Version**: 0.2 (Draft)
 
 The HTTP, WebSocket & SSE PAGI sub-specification defines how HTTP/1.1, HTTP/2, WebSocket, and Server-Side Events (SSE) connections are transported within PAGI.
 
@@ -8,6 +8,7 @@ It is designed to be a superset of the PSGI specification and specifies how to t
 
 ## Spec Versions
 
+- `0.2`: Added keepalive events (`websocket.keepalive`, `sse.keepalive`), send timeouts, disconnect reasons, SSE support for all HTTP methods (not just GET) with `sse.request` receive event for request body.
 - `0.1`: Initial draft, based on ASGI 2.5, including Server-Side Events support.
 
 ## Common Data Types
@@ -191,7 +192,7 @@ Each HTTP request has a single-request connection scope. Scope keys:
 
 - `type` (String) -- `"http"`
 - `pagi["version"]` (String) -- PAGI version
-- `pagi["spec_version"]` (String) -- PAGI HTTP spec version (default `"0.1"`)
+- `pagi["spec_version"]` (String) -- PAGI HTTP spec version (default `"0.2"`)
 - `http_version` (String) -- `"1.0"`, `"1.1"`, or `"2"`
 - `method` (String) -- Uppercase HTTP method
 - `scheme` (String, default `"http"`) -- URL scheme (`"http"` or `"https"`)
@@ -326,7 +327,7 @@ WebSocket servers handle fragmentation and PING/PONG messages. Servers MUST wait
 
 - `type` (String) -- `"websocket"`
 - `pagi["version"]` (String) -- PAGI version
-- `pagi["spec_version"]` (String) -- PAGI HTTP spec version (default `"0.1"`)
+- `pagi["spec_version"]` (String) -- PAGI HTTP spec version (default `"0.2"`)
 - `http_version` (String, default `"1.1"`) -- HTTP version used for handshake
 - `scheme` (String, default `"ws"`) -- URL scheme (`"ws"` or `"wss"`)
 - `path` (String) -- Decoded path string
@@ -377,14 +378,51 @@ connection with close code 1007 (Invalid frame payload data) per RFC 6455.
 - `type` -- `"websocket.send"`
 - `bytes` (Bytes, optional)
 - `text` (String, optional)
+- `timeout` (Number, optional) -- Send timeout in seconds. If the write does not complete within this time, the Future fails and the connection is closed.
 
-Exactly one must be non-null.
+Exactly one of `bytes` or `text` must be non-null.
+
+#### Keepalive - `send` event
+
+Enables WebSocket protocol-level ping/pong keepalive. The server sends ping frames (opcode 0x9) at the specified interval. Clients automatically respond with pong frames per RFC 6455 - no application code required.
+
+- `type` -- `"websocket.keepalive"`
+- `interval` (Number) -- Seconds between ping frames. `0` disables keepalive.
+- `timeout` (Number, optional) -- Seconds to wait for pong response. If no pong is received within this time, the connection is closed with code 1006 and the application receives a `websocket.disconnect` event with `reason => 'keepalive timeout'`.
+
+**Behavior:**
+- Multiple `websocket.keepalive` events update settings (last wins)
+- Omitting `timeout` enables keepalive without dead connection detection (useful for high-latency connections)
+- Setting `interval => 0` stops the keepalive timer
+
+**Example:**
+```perl
+# Enable keepalive with 30s ping interval, 20s pong timeout
+await $send->({
+    type     => 'websocket.keepalive',
+    interval => 30,
+    timeout  => 20,
+});
+```
 
 #### Disconnect - `receive` event
 
+Sent when the WebSocket connection is closed, either by the client, server, or due to error conditions.
+
 - `type` -- `"websocket.disconnect"`
-- `code` (Int, default `1005`)
-- `reason` (String, default empty)
+- `code` (Int, default `1005`) -- WebSocket close code per RFC 6455
+- `reason` (String, default empty) -- Human-readable disconnect reason
+
+**Common close codes and reasons:**
+
+| Code | Reason | Meaning |
+|------|--------|---------|
+| 1000 | (from client) | Normal closure |
+| 1001 | `'going away'` | Client/server going away |
+| 1006 | `'keepalive timeout'` | No pong received within timeout |
+| 1006 | `'send timeout'` | Send operation timed out |
+| 1006 | `'write error'` | Write to socket failed |
+| 1007 | `'invalid UTF-8'` | Text frame contained invalid UTF-8 |
 
 #### Disconnected Client - `send` exception
 
@@ -401,16 +439,44 @@ Raises server-specific subclass of `OSError`.
 SSE connections stream `text/event-stream` data to clients.
 
 ### SSE Connection Detection
+
 PAGI servers MUST detect SSE requests and assign a scope of type `sse` when all of the following are true:
-- The HTTP method is `GET`.
+
 - The `Accept` header includes the media type `text/event-stream`.
 - The request has not been upgraded to WebSocket.
+
 Otherwise the connection uses a normal `http` scope.
+
+**Note on HTTP methods:** SSE works with any HTTP method, not just GET. While the browser's native `EventSource` API only supports GET, libraries like Microsoft's `fetch-event-source` (used by htmx 4, datastar, and others) enable SSE over POST, PUT, and other methods via the Fetch API. PAGI servers MUST support SSE for all HTTP methods to enable these modern patterns.
+
 Routing based on URL or application logic is not used to infer SSE.
 
 ### SSE Connection Scope
 
 SSE scopes reuse the HTTP scope structure. Servers MUST populate the same keys (`http_version`, `method`, `scheme`, `path`, `headers`, `client`, `server`, `state`, etc.) but set `type => 'sse'`. Header casing rules follow the HTTP section.
+
+### Request Body - `receive` event
+
+For SSE requests with a body (POST, PUT, etc.), the application receives the body via `sse.request` events, similar to HTTP:
+
+- `type` -- `"sse.request"`
+- `body` (Bytes, default `""`) -- Request body chunk
+- `more` (Int, default `0`) -- `1` if more body data is forthcoming, otherwise `0`
+
+For GET requests (no body), a single `sse.request` event with empty body and `more => 0` is returned.
+
+**Example (POST SSE with htmx/datastar):**
+
+```perl
+my $event = await $receive->();
+if ($event->{type} eq 'sse.request') {
+    my $body = $event->{body};
+    # Parse JSON body, extract query parameters, etc.
+}
+
+await $send->({ type => 'sse.start', status => 200 });
+# ... send SSE events based on POST body ...
+```
 
 ### Start SSE - `send` event
 
@@ -451,11 +517,58 @@ await $send->({
 
 The server emits the comment followed by two newlines (`:keepalive\n\n`). This keeps the connection alive through proxies without triggering application-level event handlers on the client.
 
+### SSE Keepalive - `send` event
+
+Enables automatic SSE keepalive comments. The server sends comment lines at the specified interval to prevent proxy/load balancer timeouts on idle connections.
+
+- `type` -- `"sse.keepalive"`
+- `interval` (Number) -- Seconds between keepalive comments. `0` disables keepalive.
+- `comment` (String, default `''`) -- Comment text to send. Empty string sends just `:` followed by newlines.
+
+**Behavior:**
+- Multiple `sse.keepalive` events update settings (last wins)
+- Setting `interval => 0` stops the keepalive timer
+- Comments do not trigger client's `onmessage` handler
+
+**Example:**
+```perl
+# Enable keepalive with 30s interval
+await $send->({
+    type     => 'sse.keepalive',
+    interval => 30,
+    comment  => 'ping',
+});
+```
+
+### SSE Send Timeout
+
+The `sse.send` event supports an optional `timeout` field:
+
+- `timeout` (Number, optional) -- Send timeout in seconds. If the write does not complete within this time, the Future fails and the connection is closed.
+
+**Example:**
+```perl
+await $send->({
+    type    => 'sse.send',
+    data    => 'hello',
+    timeout => 5,
+});
+```
+
 ### SSE Disconnect - `receive` event
 
 Sent to the application if the client disconnects or if the server shuts down the SSE stream after `sse.start`.
 
 - `type` -- `"sse.disconnect"`
+- `reason` (String, default empty) -- Human-readable disconnect reason
+
+**Common reasons:**
+
+| Reason | Meaning |
+|--------|---------|
+| `'client disconnect'` | Client closed connection normally |
+| `'write error'` | Failed to write (keepalive or send) |
+| `'send timeout'` | Send timeout exceeded |
 
 ## PAGI to PSGI Compatibility
 
@@ -473,7 +586,7 @@ PAGI translates keys explicitly to maintain compatibility with PSGI:
 - `psgi.url_scheme` → `scheme`
 - `psgi.version` → `[1, 1]` (PAGI servers MUST advertise the PSGI version they emulate when bridging)
 - `psgi.input` → constructed from `http.request` events
-- `psgi.errors` → handled by the server as appropriate (often tied to the loop's logging sink)
+- `psgi.errors` → handled by the server as appropriate
 - `psgi.streaming`, `psgi.nonblocking`, `psgi.multithread`, `psgi.multiprocess` → derived from PAGI server capabilities and advertised via PSGI adapter docs
 
 Response mappings:

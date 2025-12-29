@@ -243,9 +243,9 @@ async sub ws_echo {
 
 async sub sse_stream {
     my ($self, $sse) = @_;
-    await $sse->every(1, async sub {
-        await $sse->send_event(event => 'tick', data => { time => time });
-    });
+    await $sse->keepalive(30);  # Prevent proxy timeouts
+    await $sse->send_event(event => 'connected', data => { time => time });
+    await $sse->run;  # Wait for disconnect
 }
 
 1;
