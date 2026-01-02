@@ -170,7 +170,8 @@ sees this it should log/print the message provided and then terminate.
 
 ## Version History
 
-- 0.1 (Draft)
+- 0.2 (Draft): Added is_worker and worker_num fields for multi-worker support
+- 0.1 (Draft): Initial lifespan specification
 
 ## Copyright
 

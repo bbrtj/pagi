@@ -313,6 +313,8 @@ Byte content (e.g., body payloads) must be passed as Perl scalars **without** th
 
 ## Version History
 
+- 0.2 (Draft): Loop-agnostic applications, improved event validation, clarified
+  application completion contract, added extension mechanism documentation
 - 0.1 (Draft): Initial PAGI version, modeled after ASGI 3.0
 
 ## Copyright

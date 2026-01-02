@@ -777,6 +777,8 @@ Response mappings:
 
 ## Version History
 
+- `0.2` (Draft): SSE POST method support, keepalive events, disconnect reasons,
+  clarified scope fields (method required for HTTP/SSE, not for WebSocket)
 - `0.1` (Draft): Initial draft based on ASGI 2.5, supporting HTTP, WebSocket, and SSE.
 
 ## Copyright
